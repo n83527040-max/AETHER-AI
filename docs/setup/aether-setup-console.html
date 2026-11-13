@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AETHER AI · Setup Console</title>
+<style>
+:root{
+  --bg:#06070d; --bg2:#0a0c15; --panel:#0e111d; --panel2:#121628;
+  --line:rgba(140,120,255,.18); --line2:rgba(140,120,255,.30);
+  --txt:#e9e9f5; --muted:#9a9ab4; --dim:#6d6d88;
+  --violet:#7c5cff; --violet2:#a08cff; --cyan:#4fe3e0;
+  --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
+  --r:16px; --r2:12px;
+  --shadow:0 18px 50px rgba(0,0,0,.55);
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(124,92,255,.16), transparent 60%),
+    radial-gradient(900px 500px at 90% 0%, rgba(79,227,224,.07), transparent 55%),
+    radial-gradient(800px 700px at 50% 110%, rgba(124,92,255,.09), transparent 60%),
+    var(--bg);
+  color:var(--txt); font-family:var(--font); font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--violet2); text-decoration:none}
+a:hover{text-decoration:underline}
+code,kbd,.mono{font-family:var(--mono); font-size:12.5px}
+.wrap{max-width:1240px; margin:0 auto; padding:0 20px}
+
+/* Header */
+header{position:sticky; top:0; z-index:40; backdrop-filter:blur(14px);
+  background:linear-gradient(180deg, rgba(6,7,13,.92), rgba(6,7,13,.72));
+  border-bottom:1px solid var(--line);}
+.hd{display:flex; align-items:center; gap:14px; padding:14px 0}
+.logo{width:38px;height:38px;flex:0 0 auto; filter:drop-shadow(0 0 14px rgba(124,92,255,.55))}
+.brand{display:flex; flex-direction:column; line-height:1.15}
+.brand b{font-size:16px; letter-spacing:.16em; font-weight:600}
+.brand span{font-size:11px; color:var(--muted); letter-spacing:.06em}
+.hd .spacer{flex:1}
+.pill{display:inline-flex; align-items:center; gap:7px; font-size:11.5px; letter-spacing:.05em;
+  padding:6px 11px; border-radius:999px; border:1px solid var(--line2);
+  background:rgba(124,92,255,.10); color:var(--violet2); white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok)}
+.btn{appearance:none; border:1px solid var(--line2); background:rgba(124,92,255,.10);
+  color:var(--txt); padding:9px 14px; border-radius:10px; font:inherit; font-size:13px;
+  cursor:pointer; display:inline-flex; align-items:center; gap:8px; min-height:40px}
+.btn:hover{background:rgba(124,92,255,.18)}
+.btn.primary{background:linear-gradient(180deg,#8a6dff,#6b49f5); border-color:#9a83ff;
+  box-shadow:0 8px 24px rgba(108,73,245,.35); font-weight:600}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+:focus-visible{outline:2px solid var(--cyan); outline-offset:2px}
+
+/* Layout */
+main{display:grid; grid-template-columns:268px minmax(0,1fr); gap:26px; padding:26px 0 60px; align-items:start}
+.rail{position:sticky; top:82px}
+.rail ol{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px}
+.rail button{width:100%; text-align:left; display:flex; gap:11px; align-items:flex-start;
+  background:transparent; border:1px solid transparent; color:var(--muted); padding:11px 12px;
+  border-radius:12px; font:inherit; font-size:13.5px; cursor:pointer}
+.rail button:hover{background:rgba(255,255,255,.03); color:var(--txt)}
+.rail button[aria-current="step"]{background:rgba(124,92,255,.12); border-color:var(--line2); color:var(--txt)}
+.rail .num{width:22px;height:22px;border-radius:50%;border:1px solid var(--line2);
+  display:grid;place-items:center;font-size:11.5px;flex:0 0 auto;color:var(--muted)}
+.rail button[aria-current="step"] .num{background:var(--violet);border-color:var(--violet);color:#fff}
+.rail .sub{display:block;font-size:11.5px;color:var(--dim);margin-top:2px}
+
+.card{background:linear-gradient(180deg, rgba(18,22,40,.92), rgba(12,15,26,.92));
+  border:1px solid var(--line); border-radius:var(--r); padding:22px; box-shadow:var(--shadow)}
+.card + .card{margin-top:16px}
+.panel{display:none}
+.panel.active{display:block; animation:fade .25s ease}
+@keyframes fade{from{opacity:0; transform:translateY(6px)}to{opacity:1;transform:none}}
+h1{font-size:26px; line-height:1.22; margin:0 0 6px; font-weight:600; letter-spacing:-.01em}
+h2{font-size:18px; margin:0 0 4px; font-weight:600}
+h3{font-size:13px; text-transform:uppercase; letter-spacing:.10em; color:var(--muted); margin:26px 0 10px; font-weight:600}
+h3:first-child{margin-top:0}
+p{margin:0 0 12px; color:#cfcfe3}
+.lead{color:var(--muted); font-size:14px; margin-bottom:18px}
+.hint{font-size:12.5px; color:var(--dim)}
+.note{font-size:12.5px; color:var(--muted); background:rgba(124,92,255,.07);
+  border:1px solid var(--line); border-left:3px solid var(--violet); padding:12px 14px; border-radius:10px; margin:14px 0}
+.note.warn{background:rgba(251,191,36,.07); border-left-color:var(--warn)}
+.note.bad{background:rgba(248,113,113,.08); border-left-color:var(--bad)}
+.note.ok{background:rgba(52,211,153,.07); border-left-color:var(--ok)}
+.note b{color:var(--txt)}
+
+/* Options */
+.opts{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); margin:14px 0 6px}
+.opt{position:relative; text-align:left; background:rgba(255,255,255,.02); border:1px solid var(--line);
+  border-radius:14px; padding:16px; color:var(--txt); font:inherit; cursor:pointer; min-height:112px}
+.opt:hover{border-color:var(--line2); background:rgba(124,92,255,.06)}
+.opt[aria-checked="true"]{border-color:var(--violet); background:rgba(124,92,255,.13);
+  box-shadow:inset 0 0 0 1px rgba(160,140,255,.35), 0 10px 30px rgba(124,92,255,.16)}
+.opt .t{display:flex; align-items:center; gap:9px; font-weight:600; font-size:14.5px; margin-bottom:6px}
+.opt .d{font-size:12.5px; color:var(--muted); line-height:1.5}
+.opt .tag{position:absolute; top:12px; right:12px; font-size:10px; letter-spacing:.07em;
+  text-transform:uppercase; padding:3px 7px; border-radius:999px; border:1px solid var(--line2); color:var(--muted)}
+.opt .tag.rec{color:#0b1220; background:var(--cyan); border-color:var(--cyan); font-weight:700}
+.opt .tag.no{color:var(--bad); border-color:rgba(248,113,113,.45); background:rgba(248,113,113,.08)}
+.opt .mark{width:16px;height:16px;border-radius:50%;border:1px solid var(--line2); flex:0 0 auto}
+.opt[aria-checked="true"] .mark{background:var(--violet); border-color:var(--violet); box-shadow:0 0 12px rgba(124,92,255,.8)}
+
+/* Tables */
+.tbl{width:100%; border-collapse:collapse; font-size:13px; margin:10px 0 4px}
+.tbl th,.tbl td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+.tbl th{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:600}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{white-space:nowrap}
+.badge{display:inline-block; font-size:10.5px; letter-spacing:.05em; padding:2.5px 7px; border-radius:999px;
+  border:1px solid var(--line2); white-space:nowrap}
+.badge.pub{color:var(--cyan); border-color:rgba(79,227,224,.4); background:rgba(79,227,224,.08)}
+.badge.sec{color:#fda4af; border-color:rgba(248,113,113,.4); background:rgba(248,113,113,.08)}
+.badge.req{color:var(--violet2); border-color:var(--line2); background:rgba(124,92,255,.10)}
+.badge.opt{color:var(--muted)}
+.okdot{color:var(--ok)} .badtext{color:var(--bad)} .warntext{color:var(--warn)}
+.scroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+
+/* Fields */
+.grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px}
+.field{margin:0 0 14px}
+.field label{display:flex; align-items:center; gap:8px; font-size:12.5px; color:#d9d9ec; margin-bottom:6px; font-weight:500}
+.field .req{color:var(--violet2)}
+.field input[type=text],.field input[type=url],.field input[type=password],.field select,.field textarea{
+  width:100%; background:#0a0d18; border:1px solid var(--line); color:var(--txt);
+  border-radius:10px; padding:10px 12px; font:inherit; font-size:13.5px; min-height:42px}
+.field input:focus,.field select:focus{border-color:var(--violet); box-shadow:0 0 0 3px rgba(124,92,255,.15); outline:none}
+.field input[readonly]{color:var(--muted); background:#080a12}
+.field .desc{font-size:11.8px; color:var(--dim); margin-top:5px}
+.field .err{font-size:11.8px; color:var(--bad); margin-top:5px; display:none}
+.field.invalid input{border-color:rgba(248,113,113,.6)}
+.field.invalid .err{display:block}
+.inline{display:flex; gap:8px; align-items:stretch}
+.inline input{flex:1}
+.iconbtn{flex:0 0 auto; width:42px; min-height:42px; display:grid; place-items:center; border-radius:10px;
+  border:1px solid var(--line); background:#0a0d18; color:var(--muted); cursor:pointer; font-size:14px}
+.iconbtn:hover{color:var(--txt); border-color:var(--line2)}
+.check{display:flex; gap:10px; align-items:flex-start; font-size:13px; color:#d6d6e8; margin:8px 0}
+.check input{margin-top:3px; accent-color:var(--violet); width:16px; height:16px; flex:0 0 auto}
+.hidden{display:none !important}
+
+/* Steps list */
+.steps{counter-reset:s; list-style:none; padding:0; margin:8px 0 0}
+.steps li{counter-increment:s; position:relative; padding:0 0 16px 38px; font-size:13.5px; color:#d5d5e6}
+.steps li::before{content:counter(s); position:absolute; left:0; top:0; width:24px; height:24px;
+  border-radius:50%; background:rgba(124,92,255,.16); border:1px solid var(--line2);
+  display:grid; place-items:center; font-size:11.5px; color:var(--violet2)}
+.steps li b{color:var(--txt)}
+.steps li .hint{display:block; margin-top:3px}
+
+/* Summary */
+.summary{display:grid; gap:10px}
+.srow{display:flex; gap:12px; justify-content:space-between; align-items:flex-start;
+  padding:11px 13px; background:rgba(255,255,255,.02); border:1px solid var(--line); border-radius:10px; font-size:13px}
+.srow span:first-child{color:var(--muted)}
+.srow b{font-weight:600; text-align:right}
+pre.manifest{background:#080a12; border:1px solid var(--line); border-radius:12px; padding:14px;
+  overflow:auto; font-family:var(--mono); font-size:11.5px; line-height:1.5; color:#b9c6ff; max-height:340px}
+.footnav{display:flex; gap:10px; justify-content:space-between; margin-top:20px; flex-wrap:wrap}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); opacity:0; pointer-events:none;
+  background:#12172a; border:1px solid var(--line2); color:var(--txt); padding:10px 16px; border-radius:999px;
+  font-size:13px; box-shadow:var(--shadow); transition:.25s; z-index:80}
+.toast.show{opacity:1; transform:translate(-50%,0)}
+footer{border-top:1px solid var(--line); padding:22px 0 44px; color:var(--dim); font-size:12.5px}
+footer .cols{display:flex; gap:18px; flex-wrap:wrap; justify-content:space-between}
+
+@media (max-width:980px){
+  main{grid-template-columns:1fr; gap:16px}
+  .rail{position:static; order:0}
+  .rail ol{flex-direction:row; overflow-x:auto; gap:8px; padding-bottom:6px}
+  .rail button{min-width:170px}
+  .rail .sub{display:none}
+}
+@media (max-width:560px){
+  body{font-size:14.5px}
+  h1{font-size:22px}
+  .hd{flex-wrap:wrap; gap:10px}
+  .hd .hide-sm{display:none}
+  .card{padding:17px}
+  .tbl th,.tbl td{padding:8px 9px}
+}
+@media print{
+  body{background:#fff; color:#000}
+  header,.rail,.footnav,.toast,.btn,.iconbtn{display:none !important}
+  .card{box-shadow:none; border:1px solid #ccc; background:#fff; color:#000; page-break-inside:avoid}
+  p,.opt .d,.hint,.field .desc{color:#333}
+  .panel{display:block !important}
+  pre.manifest{color:#000; border-color:#ccc; background:#f7f7f7}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap hd">
+    <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <linearGradient id="g1" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stop-color="#4fe3e0"/><stop offset=".5" stop-color="#a08cff"/><stop offset="1" stop-color="#7c5cff"/>
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(140,120,255,.35)" stroke-width="1.5"/>
+      <path d="M50 14 L82 82 H66 L50 42 L34 82 H18 Z" fill="url(#g1)" opacity=".95"/>
+      <circle cx="50" cy="62" r="6" fill="#0a0c15" stroke="#a08cff" stroke-width="2"/>
+    </svg>
+    <div class="brand">
+      <b>AETHER AI</b>
+      <span>Setup Console · Phase 3 configuration gate</span>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill hide-sm"><span class="dot"></span> Research complete · no code yet</span>
+    <button class="btn ghost" onclick="window.print()" title="Print or save as PDF">Print / PDF</button>
+  </div>
+</header>
+
+<div class="wrap">
+<main>
+  <aside class="rail" aria-label="Setup steps">
+    <ol>
+      <li><button data-step="1" aria-current="step" onclick="go(1)">
+        <span class="num">1</span><span>Runtime hosting<span class="sub">Where Hermes actually runs</span></span>
+      </button></li>
+      <li><button data-step="2" onclick="go(2)">
+        <span class="num">2</span><span>GitHub identity<span class="sub">App vs OAuth App</span></span>
+      </button></li>
+      <li><button data-step="3" onclick="go(3)">
+        <span class="num">3</span><span>Sign-in &amp; key custody<span class="sub">Flow, secrets, configuration</span></span>
+      </button></li>
+      <li><button data-step="4" onclick="go(4)">
+        <span class="num">4</span><span>Create the app<span class="sub">Exact steps &amp; permissions</span></span>
+      </button></li>
+      <li><button data-step="5" onclick="go(5)">
+        <span class="num">5</span><span>Review &amp; export<span class="sub">Non-secret manifest</span></span>
+      </button></li>
+    </ol>
+    <div class="note" style="margin-top:16px">
+      <b>Offline by design.</b> This page makes no network requests and stores nothing. Secret fields are never exported.
+    </div>
+  </aside>
+
+  <section class="content" aria-live="polite">
+
+    <!-- STEP 1 -->
+    <div class="panel active" id="panel1" role="region" aria-label="Step 1 Runtime hosting">
+      <div class="card">
+        <h1>Step 1 · Choose where Hermes runs</h1>
+        <p class="lead">AETHER's client is Flutter on Android. The agent runtime is a separate long-lived Hermes gateway.
+        GitHub Actions was the requested host — research shows it fits the 6-hour ceiling but <b>not</b> GitHub's terms of service for interactive workloads.</p>
+
+        <div class="note bad">
+          <b>Policy finding (GitHub Terms, effective 2026-08-27).</b> For GitHub-hosted runners, Actions may not be used for
+          <i>"any other activity unrelated to the production, testing, deployment, or publication of the software project associated with the repository where GitHub Actions are used."</i>
+          The same document also forbids using Actions <i>"as part of a serverless application"</i>. An always-interactive personal agent is unrelated activity; enforcement can include job termination, Actions restriction, repository disabling, or account suspension.
+          <br><a href="https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features" target="_blank" rel="noopener">Official source ↗</a>
+        </div>
+
+        <div class="opts" role="radiogroup" aria-label="Runtime hosting">
+          <button class="opt" role="radio" aria-checked="true" data-group="hosting" data-value="A1" onclick="pick(this)">
+            <span class="tag rec">Recommended</span>
+            <span class="t"><span class="mark" aria-hidden="true"></span>Dedicated compute</span>
+            <span class="d">A small VPS, home server, or serverless sandbox runs the real Hermes gateway. GitHub keeps identity, orchestration and repository snapshots. Fully policy-compliant.</span>
+          </button>
+          <button class="opt" role="radio" aria-checked="false" data-group="hosting" data-value="A2" onclick="pick(this)">
+            <span class="t"><span class="mark" aria-hidden="true"></span>Self-hosted runner</span>
+            <span class="d">A GitHub Actions self-hosted runner on hardware you control. Orchestration stays in GitHub; the workload runs on your machine.</span>
+          </button>
+          <button class="opt" role="radio" aria-checked="false" data-group="hosting" data-value="A4" onclick="pick(this)">
+            <span class="t"><span class="mark" aria-hidden="true"></span>Phone-local (Termux)</span>
+            <span class="d">Hermes runs on an Android device via its Termux package. Zero cost, but bound to battery, thermals and mobile network.</span>
+          </button>
+          <button class="opt" role="radio" aria-checked="false" data-group="hosting" data-value="A3" onclick="pick(this)">
+            <span class="tag no">Not compliant</span>
+            <span class="t"><span class="mark" aria-hidden="true"></span>GitHub-hosted Actions</span>
+            <span class="d">The originally requested host. Technically fits (6 h job limit) but violates the Actions terms above. Selectable only with explicit risk acceptance.</span>
+          </button>
+        </div>
+
+        <div id="a3ack" class="note warn hidden">
+          <label class="check" style="margin:0">
+            <input type="checkbox" id="a3risk" onchange="setA3(this.checked)">
+            <span>I understand that running an interactive agent on GitHub-hosted runners breaches GitHub's Terms, and I accept the risk of job termination, Actions restriction, or account suspension. I still want this option evaluated.</span>
+          </label>
+        </div>
+
+        <h3>What changes with each option</h3>
+        <div class="scroll">
+        <table class="tbl">
+          <thead><tr><th>Option</th><th>5 h session</th><th>Resume Agent</th><th>Policy</th><th>Cost shape</th></tr></thead>
+          <tbody>
+            <tr><td><b>A1 Dedicated</b></td><td class="okdot">Yes — supervised process</td><td class="okdot">Native (state on disk)</td><td class="okdot">Compliant</td><td>VPS $0–5/mo, or free tier</td></tr>
+            <tr><td><b>A2 Self-hosted</b></td><td class="okdot">Yes — 5-day job ceiling</td><td>Yes, via repo restore</td><td class="okdot">Compliant (own hardware)</td><td>Electricity + your hardware</td></tr>
+            <tr><td><b>A4 Termux</b></td><td class="warntext">Yes, device-dependent</td><td>Yes, via repo restore</td><td class="okdot">Compliant</td><td>Free</td></tr>
+            <tr><td><b>A3 Hosted Actions</b></td><td class="warntext">Yes (6 h cap)</td><td>New job + restore</td><td class="badtext">Prohibited</td><td>~300 min/session; 2,000 min/mo free on Free plan → ~6 sessions</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="field" style="margin-top:18px">
+          <label for="workerUrl">Worker / gateway endpoint <span class="badge pub">PUBLIC</span></label>
+          <div class="inline">
+            <input type="text" id="workerUrl" data-key="workerUrl" placeholder="wss://agent.your-domain.dev" inputmode="url">
+            <button class="iconbtn" title="Copy" onclick="copyVal('workerUrl')">⧉</button>
+          </div>
+          <div class="desc">The WSS endpoint your AETHER app will connect to. Leave blank now if you have not provisioned the worker yet — it is required before Phase 5, not before Phase 2.</div>
+        </div>
+
+        <div class="footnav">
+          <span class="hint">Selection is advisory until you confirm in chat.</span>
+          <button class="btn primary" onclick="go(2)">Continue to GitHub identity →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="panel" id="panel2" role="region" aria-label="Step 2 GitHub identity">
+      <div class="card">
+        <h1>Step 2 · GitHub App or GitHub OAuth App?</h1>
+        <p class="lead">Both can sign a user in. They differ in how much access they request, how long tokens live, and whether access is limited to selected repositories.</p>
+
+        <div class="opts" role="radiogroup" aria-label="GitHub identity model">
+          <button class="opt" role="radio" aria-checked="true" data-group="auth" data-value="B1" onclick="pick(this)">
+            <span class="tag rec">Recommended</span>
+            <span class="t"><span class="mark" aria-hidden="true"></span>GitHub App</span>
+            <span class="d">Granular permissions, installation limited to chosen repositories, 1-hour installation tokens, 8-hour user tokens. Requires an App ID, client ID, and a private key held server-side.</span>
+          </button>
+          <button class="opt" role="radio" aria-checked="false" data-group="auth" data-value="B2" onclick="pick(this)">
+            <span class="t"><span class="mark" aria-hidden="true"></span>GitHub OAuth App</span>
+            <span class="d">Classic scopes (<code>repo</code>, <code>workflow</code>) covering all private repositories. Simpler to register; no installation model; tokens do not expire by default.</span>
+          </button>
+        </div>
+
+        <h3>Evidence-based comparison</h3>
+        <div class="scroll">
+        <table class="tbl">
+          <thead><tr><th>Criterion</th><th>GitHub App</th><th>OAuth App</th></tr></thead>
+          <tbody>
+            <tr><td>Permission model</td><td class="okdot">Per-resource (Contents, Actions, Metadata)</td><td class="badtext">All-or-nothing classic scopes</td></tr>
+            <tr><td>Repository scope</td><td class="okdot">Installation can be limited to selected repos</td><td class="badtext">Every private repo the user can access</td></tr>
+            <tr><td>User token lifetime</td><td>8 h + 6-month refresh token</td><td>Non-expiring unless enabled</td></tr>
+            <tr><td>Short-lived repo token</td><td class="okdot">Yes — 1 h installation token</td><td class="badtext">No</td></tr>
+            <tr><td>Mobile sign-in without secret</td><td class="okdot">Device flow (client_id only)</td><td class="okdot">Device flow (client_id only)</td></tr>
+            <tr><td>Browser redirect</td><td>PKCE S256 supported</td><td>PKCE S256 supported</td></tr>
+            <tr><td>Token exchange/refresh</td><td>Needs client secret → broker</td><td>Needs client secret → broker (or re-auth)</td></tr>
+            <tr><td>Create a repository</td><td class="warntext">Needs "Administration" write (broad) — avoid; use a pre-filled github.com/new link</td><td>Needs <code>repo</code></td></tr>
+            <tr><td>Dispatch a workflow</td><td>Actions (write)</td><td><code>repo</code> + <code>workflow</code></td></tr>
+            <tr><td>Revocation</td><td class="okdot">Uninstall app, or revoke one token</td><td>Revoke token</td></tr>
+            <tr><td>Setup effort</td><td>Higher (installation + broker)</td><td class="okdot">Lower</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="note">
+          <b>Why the recommendation stands.</b> AETHER stores encrypted snapshots and dispatches orchestration workflows. That calls for <i>Contents</i> and <i>Actions</i> write on <b>one chosen repository</b>, not blanket control of every private repository. A GitHub App expresses exactly that and can be revoked per installation.
+        </div>
+
+        <div class="footnav">
+          <button class="btn ghost" onclick="go(1)">← Back</button>
+          <button class="btn primary" onclick="go(3)">Continue to custody →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="panel" id="panel3" role="region" aria-label="Step 3 Sign-in and key custody">
+      <div class="card">
+        <h1>Step 3 · Sign-in flow and key custody</h1>
+        <p class="lead">This is where most mobile GitHub integrations leak secrets. AETHER never embeds a client secret, private key, or provider API key in the APK.</p>
+
+        <h3>Sign-in flow</h3>
+        <div class="opts" role="radiogroup" aria-label="Sign-in flow">
+          <button class="opt" role="radio" aria-checked="true" data-group="flow" data-value="F1" onclick="pick(this)">
+            <span class="tag rec">Recommended</span>
+            <span class="t"><span class="mark" aria-hidden="true"></span>Device flow</span>
+            <span class="d">App shows an 8-character code; you approve at <code>github.com/login/device</code>. No callback URL and no client secret involved in sign-in. Must be enabled in app settings.</span>
+          </button>
+          <button class="opt" role="radio" aria-checked="false" data-group="flow" data-value="F2" onclick="pick(this)">
+            <span class="t"><span class="mark" aria-hidden="true"></span>Browser redirect + PKCE</span>
+            <span class="d">Custom Tabs opens GitHub; the app catches a deep link and validates <code>state</code>. Code exchange happens server-side, because it requires the client secret.</span>
+          </button>
+        </div>
+
+        <div id="custody-block">
+          <h3>Key custody <span class="badge req">GitHub App only</span></h3>
+          <div class="opts" role="radiogroup" aria-label="Key custody">
+            <button class="opt" role="radio" aria-checked="true" data-group="custody" data-value="C1" onclick="pick(this)">
+              <span class="tag rec">Recommended</span>
+              <span class="t"><span class="mark" aria-hidden="true"></span>Token broker</span>
+              <span class="d">A small stateless service you control holds the private key and client secret. It mints 1-hour installation tokens and refreshes user tokens. The device holds only short-lived tokens.</span>
+            </button>
+            <button class="opt" role="radio" aria-checked="false" data-group="custody" data-value="C2" onclick="pick(this)">
+              <span class="t"><span class="mark" aria-hidden="true"></span>Device flow only, no broker</span>
+              <span class="d">Zero server components. No installation tokens and no refresh (refresh needs the secret), so you re-approve the device roughly every 8 hours.</span>
+            </button>
+          </div>
+        </div>
+
+        <h3>Configuration fields</h3>
+        <p class="hint">Public values are safe to share. Secret values stay local — enter them in your own <code>.env</code> or secret manager, never in chat.</p>
+
+        <div class="grid2">
+          <div class="field">
+            <label for="appName">Application name <span class="badge pub">PUBLIC</span></label>
+            <input type="text" id="appName" data-key="appName" placeholder="AETHER AI">
+            <div class="desc">Shown on the GitHub consent screen. You choose it.</div>
+          </div>
+
+          <div class="field">
+            <label for="appSlug">App slug <span class="badge pub">PUBLIC</span></label>
+            <input type="text" id="appSlug" data-key="appSlug" placeholder="aether-ai">
+            <div class="desc">GitHub derives this from the name; shown in the app's public URL.</div>
+          </div>
+
+          <div class="field" data-show="B1">
+            <label for="appId">App ID <span class="badge pub">PUBLIC</span><span class="req">*</span></label>
+            <input type="text" id="appId" data-key="appId" placeholder="1234567" inputmode="numeric">
+            <div class="desc">Numeric. App settings → About → App ID.</div>
+            <div class="err">App ID must be numeric.</div>
+          </div>
+
+          <div class="field">
+            <label for="clientId">Client ID <span class="badge pub">PUBLIC</span><span class="req">*</span></label>
+            <input type="text" id="clientId" data-key="clientId" placeholder="Iv1.0123456789abcdef" autocomplete="off" spellcheck="false">
+            <div class="desc">App settings → About → Client ID. Used by device flow and PKCE.</div>
+            <div class="err">Client ID looks too short.</div>
+          </div>
+
+          <div class="field">
+            <label for="clientSecret">Client secret <span class="badge sec">SECRET</span></label>
+            <div class="inline">
+              <input type="password" id="clientSecret" data-key="clientSecret" placeholder="••••••••••••••••••••" autocomplete="new-password" spellcheck="false">
+              <button class="iconbtn" title="Show / hide" onclick="toggleReveal('clientSecret', this)">◉</button>
+            </div>
+            <div class="desc">Generate in app settings. Stored only in your broker's environment.</div>
+          </div>
+
+          <div class="field" data-show="B1">
+            <label for="privateKey">Private key (.pem) <span class="badge sec">SECRET FILE</span></label>
+            <input type="file" id="privateKey" accept=".pem" onchange="noteFile(this)" style="width:100%;background:#0a0d18;border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:9px 12px;font:inherit;font-size:12.5px">
+            <div class="desc" id="pemDesc">Generate in app settings → Private keys. Its <b>contents are not read</b> by this page; only the filename is noted. Keep it on the broker host only.</div>
+          </div>
+
+          <div class="field" data-flow="F2">
+            <label for="callbackUrl">Callback URL <span class="badge pub">PUBLIC</span></label>
+            <div class="inline">
+              <input type="text" id="callbackUrl" data-key="callbackUrl" readonly>
+              <button class="iconbtn" title="Copy" onclick="copyVal('callbackUrl')">⧉</button>
+            </div>
+            <div class="desc">Generated from your package name and broker host. Must match GitHub exactly.</div>
+          </div>
+
+          <div class="field">
+            <label for="brokerUrl">Broker base URL <span class="badge pub">PUBLIC</span></label>
+            <input type="text" id="brokerUrl" data-key="brokerUrl" placeholder="https://auth.your-domain.dev" inputmode="url">
+            <div class="desc">HTTPS only. Used for the callback and code exchange.</div>
+            <div class="err">Must start with https://</div>
+          </div>
+
+          <div class="field">
+            <label for="pkgName">Android package name <span class="badge pub">PUBLIC</span></label>
+            <input type="text" id="pkgName" data-key="pkgName" placeholder="ai.aether.agent">
+            <div class="desc">Reverse-DNS. Also the basis of the deep link.</div>
+            <div class="err">Use reverse-DNS, e.g. ai.aether.agent</div>
+          </div>
+
+          <div class="field">
+            <label for="repoOwner">Workspace repository owner <span class="badge pub">PUBLIC</span></label>
+            <input type="text" id="repoOwner" data-key="repoOwner" placeholder="your-github-username">
+          </div>
+
+          <div class="field">
+            <label for="repoName">Workspace repository name <span class="badge pub">PUBLIC</span></label>
+            <input type="text" id="repoName" data-key="repoName" placeholder="aether-ai-workspace">
+            <div class="desc">Private repository for encrypted snapshots. Created by you, not by the app.</div>
+          </div>
+
+          <div class="field" data-show="B1">
+            <label for="installationId">Installation ID <span class="badge pub">PUBLIC</span> <span class="badge opt">discovered later</span></label>
+            <input type="text" id="installationId" data-key="installationId" placeholder="Leave blank until installed" inputmode="numeric">
+            <div class="desc">Returned after you install the App on your account; the broker discovers it.</div>
+          </div>
+        </div>
+
+        <div data-show="B2">
+          <h3>OAuth App scopes</h3>
+          <label class="check"><input type="checkbox" data-scope="repo" checked> <span><code>repo</code> — read/write private repositories (required for snapshots and repo listing)</span></label>
+          <label class="check"><input type="checkbox" data-scope="workflow" checked> <span><code>workflow</code> — update GitHub Actions workflow files (required for orchestration)</span></label>
+          <label class="check"><input type="checkbox" data-scope="read:user" checked> <span><code>read:user</code> — display your account identity</span></label>
+          <label class="check"><input type="checkbox" id="deviceFlowEnabled"> <span>Device flow is enabled in the OAuth App settings (required for flow F1)</span></label>
+        </div>
+
+        <div data-show="B1">
+          <h3>Webhooks (optional — default off)</h3>
+          <label class="check"><input type="checkbox" id="webhookToggle" onchange="toggleWebhook(this.checked)"> <span>I want run-status webhooks instead of polling</span></label>
+          <div id="webhookFields" class="hidden">
+            <div class="grid2">
+              <div class="field">
+                <label for="webhookUrl">Webhook URL <span class="badge pub">PUBLIC</span></label>
+                <input type="text" id="webhookUrl" data-key="webhookUrl" placeholder="https://auth.your-domain.dev/github/webhook">
+              </div>
+              <div class="field">
+                <label for="webhookSecret">Webhook secret <span class="badge sec">SECRET</span></label>
+                <input type="password" id="webhookSecret" data-key="webhookSecret" placeholder="generate 32+ random chars" autocomplete="new-password">
+                <div class="desc">Generate with a password manager; never commit it.</div>
+              </div>
+            </div>
+            <div class="note warn">Webhooks add an inbound HTTPS endpoint and a verification burden. Polling workflow runs through the REST API is sufficient for v1.</div>
+          </div>
+        </div>
+
+        <div class="footnav">
+          <button class="btn ghost" onclick="go(2)">← Back</button>
+          <button class="btn primary" onclick="go(4)">Continue to creation steps →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="panel" id="panel4" role="region" aria-label="Step 4 Create the GitHub application">
+      <div class="card">
+        <h1>Step 4 · Create the application</h1>
+        <p class="lead" id="createLead">Follow these steps exactly. Values in <code>monospace</code> come from the fields you filled in.</p>
+
+        <div id="stepsApp">
+          <ol class="steps">
+            <li><b>Open the GitHub App creation form.</b>
+              <span class="hint"><a href="https://github.com/settings/apps/new" target="_blank" rel="noopener">github.com/settings/apps/new</a> (personal) · org owners: <code>https://github.com/organizations/&lt;ORG&gt;/settings/apps/new</code></span></li>
+            <li><b>Name and home page.</b> App name: <code data-bind="appName">AETHER AI</code>. Homepage URL: your repo or product page (HTTPS).</li>
+            <li><b>Identifying and authorizing users.</b> Leave the callback URL blank if you chose device flow. For browser redirect, set:<br><code data-bind="callbackText">aetherai://oauth/callback</code><br>Then tick <b>Enable Device Flow</b> if you chose device flow.</li>
+            <li><b>Webhook.</b> Untick <b>Active</b> unless you explicitly enabled webhooks in Step 3. If you did, paste the webhook URL and secret.</li>
+            <li><b>Repository permissions.</b> Set exactly the permissions in the table below. Leave everything else at <i>No access</i>. Do not grant Administration.</li>
+            <li><b>Account permissions.</b> None.</li>
+            <li><b>Subscribe to events.</b> None for v1 (polling).</li>
+            <li><b>Where can this app be installed?</b> "Only on this account" for personal use; "Any account" only if you intend to distribute AETHER.</li>
+            <li><b>Create the GitHub App</b>, then copy the <b>App ID</b> and <b>Client ID</b> into Step 3.</li>
+            <li><b>Generate a client secret</b> (App settings → Client secrets → Generate). Put it in your broker environment, never in this page's export.</li>
+            <li><b>Generate a private key</b> (App settings → Private keys → Generate a private key). A <code>.pem</code> downloads once. Store it on the broker host with 0600 permissions. GitHub cannot show it again.</li>
+            <li><b>Install the App</b> on your account and choose <b>Only select repositories</b> → your AETHER workspace repository. Copy the installation ID from the URL (<code>/installations/&lt;ID&gt;</code>).</li>
+            <li><b>Verify least privilege.</b> Re-open the app settings and confirm no extra permissions were granted.</li>
+          </ol>
+        </div>
+
+        <div id="stepsOauth" class="hidden">
+          <ol class="steps">
+            <li><b>Open the OAuth App form.</b>
+              <span class="hint"><a href="https://github.com/settings/applications/new" target="_blank" rel="noopener">github.com/settings/applications/new</a> · org: <code>https://github.com/organizations/&lt;ORG&gt;/settings/applications/new</code></span></li>
+            <li><b>Application name:</b> <code data-bind="appName">AETHER AI</code>. <b>Homepage URL:</b> HTTPS product or repo page.</li>
+            <li><b>Authorization callback URL:</b> <code data-bind="callbackText">aetherai://oauth/callback</code> — must match the app's deep link exactly.</li>
+            <li><b>Register application</b>, then copy the <b>Client ID</b> into Step 3.</li>
+            <li><b>Generate a client secret</b> and store it in your broker environment.</li>
+            <li><b>Enable Device Flow</b> in the app's settings if you selected device flow.</li>
+            <li><b>Review scopes.</b> OAuth Apps request classic scopes at authorization time; keep them to <code>repo</code>, <code>workflow</code>, <code>read:user</code>.</li>
+            <li><b>Verify</b> the app's callback URL and homepage are correct, then test authorization with a throwaway account.</li>
+          </ol>
+        </div>
+
+        <h3>GitHub App permissions to request</h3>
+        <div class="scroll">
+        <table class="tbl">
+          <thead><tr><th>Permission</th><th>Level</th><th>Why AETHER needs it</th><th>Needed</th></tr></thead>
+          <tbody>
+            <tr><td>Metadata</td><td>Read</td><td>Mandatory for every GitHub App; repository identity and access checks.</td><td><span class="badge req">Required</span></td></tr>
+            <tr><td>Contents</td><td>Read &amp; write</td><td>Read/write encrypted snapshots, agent config, skills and project files in the chosen repo.</td><td><span class="badge req">Required</span></td></tr>
+            <tr><td>Actions</td><td>Read &amp; write</td><td>Dispatch and observe orchestration workflows (deploy, checkpoint). Never used to execute the agent itself.</td><td><span class="badge req">Required</span></td></tr>
+            <tr><td>Workflows</td><td>Write</td><td>Update workflow files when AETHER upgrades its orchestration templates.</td><td><span class="badge req">Required</span></td></tr>
+            <tr><td>Administration</td><td>—</td><td>Would allow repo creation/deletion. Avoided: repo creation is done by you via a pre-filled github.com/new link, verified afterwards.</td><td><span class="badge opt">Not requested</span></td></tr>
+            <tr><td>Issues / Pull requests / Checks</td><td>—</td><td>Not part of any AETHER feature in v1.</td><td><span class="badge opt">Not requested</span></td></tr>
+            <tr><td>Account permissions</td><td>—</td><td>Not needed; identity comes from the user access token.</td><td><span class="badge opt">Not requested</span></td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <h3>Public vs secret</h3>
+        <div class="scroll">
+        <table class="tbl">
+          <thead><tr><th>Value</th><th>Class</th><th>Where it lives</th><th>Can be shared in chat?</th></tr></thead>
+          <tbody>
+            <tr><td>App ID</td><td><span class="badge pub">PUBLIC</span></td><td>App config / compile-time constant</td><td class="okdot">Yes</td></tr>
+            <tr><td>Client ID</td><td><span class="badge pub">PUBLIC</span></td><td>App config</td><td class="okdot">Yes</td></tr>
+            <tr><td>App slug</td><td><span class="badge pub">PUBLIC</span></td><td>App config / URLs</td><td class="okdot">Yes</td></tr>
+            <tr><td>Callback URL</td><td><span class="badge pub">PUBLIC</span></td><td>GitHub settings + app manifest</td><td class="okdot">Yes</td></tr>
+            <tr><td>Installation ID</td><td><span class="badge pub">PUBLIC</span></td><td>Broker config</td><td class="okdot">Yes</td></tr>
+            <tr><td>Client secret</td><td><span class="badge sec">SECRET</span></td><td>Broker environment only</td><td class="badtext">No</td></tr>
+            <tr><td>Private key (.pem)</td><td><span class="badge sec">SECRET</span></td><td>Broker filesystem, 0600</td><td class="badtext">No</td></tr>
+            <tr><td>Webhook secret</td><td><span class="badge sec">SECRET</span></td><td>Broker environment</td><td class="badtext">No</td></tr>
+            <tr><td>Provider API keys</td><td><span class="badge sec">SECRET</span></td><td>Worker environment / device Keystore</td><td class="badtext">No</td></tr>
+            <tr><td>GitHub user/installation tokens</td><td><span class="badge sec">SHORT-LIVED</span></td><td>Android Keystore, memory</td><td class="badtext">No</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="note ok">
+          <b>Callback URL rules.</b> GitHub compares the callback literally. Every environment (debug/release) needs its own registered URL or scheme host. A custom scheme like <code>aetherai://oauth/callback</code> is acceptable for a native app; an HTTPS App Link to your broker domain is stronger because Android verifies domain ownership, but requires <code>assetlinks.json</code> hosting.
+        </div>
+
+        <div class="footnav">
+          <button class="btn ghost" onclick="go(3)">← Back</button>
+          <button class="btn primary" onclick="go(5)">Review &amp; export →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5 -->
+    <div class="panel" id="panel5" role="region" aria-label="Step 5 Review and export">
+      <div class="card">
+        <h1>Step 5 · Review and hand off</h1>
+        <p class="lead">This manifest contains <b>only public identifiers</b>. Secrets are intentionally excluded — they belong in a git-ignored <code>.env</code>, your broker's environment, or a secret manager.</p>
+
+        <div class="summary" id="summary"></div>
+
+        <h3>Configuration manifest (public values only)</h3>
+        <pre class="manifest" id="manifest">—</pre>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px">
+          <button class="btn primary" onclick="downloadManifest()">Download manifest (.json)</button>
+          <button class="btn" onclick="copyManifest()">Copy JSON</button>
+          <button class="btn ghost" onclick="copyHandoff()">Copy chat hand-off</button>
+        </div>
+
+        <h3>What to send me</h3>
+        <div class="grid2">
+          <div class="note ok" style="margin:0">
+            <b>Safe to paste in chat</b><br>
+            Runtime choice (A1–A4) · identity model (B1/B2) · sign-in flow (F1/F2) · key custody · App ID · Client ID · App slug · package name · callback URL · repo owner/name · worker/broker hostnames.
+          </div>
+          <div class="note bad" style="margin:0">
+            <b>Never paste in chat</b><br>
+            Client secret · private key PEM · webhook secret · provider API keys · access/refresh tokens · keystore passwords. Put them in a local <code>.env</code> (git-ignored) or your broker/worker environment.
+          </div>
+        </div>
+
+        <h3>Validation</h3>
+        <div id="validation" class="note">—</div>
+
+        <div class="footnav">
+          <button class="btn ghost" onclick="go(4)">← Back</button>
+          <button class="btn primary" onclick="window.print()">Save this report as PDF</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</main>
+</div>
+
+<footer>
+  <div class="wrap cols">
+    <span>AETHER AI · Your Personal Autonomous AI Agent — Setup Console v1 · generated locally, 2026-11-13</span>
+    <span>No network requests · no storage · no analytics</span>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite">Copied</div>
+
+<script>
+"use strict";
+
+const state = {
+  hosting:"A1", auth:"B1", flow:"F1", custody:"C1",
+  appName:"AETHER AI", appSlug:"aether-ai", appId:"", clientId:"",
+  clientSecret:"", privateKeyName:"", webhookSecret:"",
+  pkgName:"ai.aether.agent", brokerUrl:"", workerUrl:"",
+  repoOwner:"", repoName:"aether-ai-workspace", installationId:"",
+  webhookUrl:"", webhooks:false, a3risk:false,
+  scopes:{repo:true, workflow:true, "read:user":true}, deviceFlowEnabled:false
+};
+
+const PACKAGE_RE = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
+const CLIENT_ID_RE = /^[A-Za-z0-9._-]{10,64}$/;
+const HOST_RE = /^(https:\/\/|wss:\/\/)[^\s]+$/;
+
+function $(s, r){ return (r||document).querySelector(s); }
+function $all(s, r){ return Array.from((r||document).querySelectorAll(s)); }
+
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove("show"), 1600);
+}
+
+function go(n){
+  $all(".panel").forEach(p=>p.classList.remove("active"));
+  $("#panel"+n).classList.add("active");
+  $all(".rail button").forEach(b=>{
+    if(Number(b.dataset.step)===n){ b.setAttribute("aria-current","step"); }
+    else { b.removeAttribute("aria-current"); }
+  });
+  window.scrollTo({top:0, behavior:"smooth"});
+  render();
+}
+
+function pick(el){
+  const group = el.dataset.group, value = el.dataset.value;
+  if(group==="hosting" && value==="A3" && !state.a3risk){
+    $("#a3ack").classList.remove("hidden");
+    return; // require acknowledgement before selecting
+  }
+  $all('.opt[data-group="'+group+'"]').forEach(o=>o.setAttribute("aria-checked","false"));
+  el.setAttribute("aria-checked","true");
+  state[group] = value;
+  if(group==="hosting" && value!=="A3"){ $("#a3ack").classList.add("hidden"); }
+  render();
+}
+
+function setA3(on){
+  state.a3risk = on;
+  if(on){
+    $all('.opt[data-group="hosting"]').forEach(o=>o.setAttribute("aria-checked","false"));
+    const a3 = document.querySelector('.opt[data-value="A3"]');
+    a3.setAttribute("aria-checked","true");
+    state.hosting = "A3";
+    render();
+  } else {
+    if(state.hosting==="A3"){ state.hosting="A1"; syncCards("hosting","A1"); }
+    render();
+  }
+}
+
+function syncCards(group, value){
+  $all('.opt[data-group="'+group+'"]').forEach(o=>{
+    o.setAttribute("aria-checked", o.dataset.value===value ? "true" : "false");
+  });
+}
+
+function toggleReveal(id, btn){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.type = el.type==="password" ? "text" : "password";
+  btn.textContent = el.type==="password" ? "◉" : "◌";
+}
+
+function noteFile(input){
+  if(input.files && input.files.length){
+    state.privateKeyName = input.files[0].name;
+    $("#pemDesc").innerHTML = "File selected: <code>"+escapeHtml(state.privateKeyName)+
+      "</code>. Contents were <b>not</b> read by this page. Store it on the broker host with 0600 permissions.";
+    render();
+  }
+}
+
+function toggleWebhook(on){
+  state.webhooks = on;
+  $("#webhookFields").classList.toggle("hidden", !on);
+  render();
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function callbackUrl(){
+  if(state.flow==="F2"){
+    const host = state.brokerUrl.replace(/\/+$/,"");
+    if(host.startsWith("https://")) return host + "/oauth/callback";
+  }
+  return "aetherai://oauth/callback";
+}
+
+/* Bind text inputs */
+$all("input[data-key]").forEach(inp=>{
+  inp.addEventListener("input", ()=>{
+    state[inp.dataset.key] = inp.value.trim();
+    render();
+  });
+});
+$all("input[data-scope]").forEach(cb=>{
+  cb.addEventListener("change", ()=>{ state.scopes[cb.dataset.scope] = cb.checked; render(); });
+});
+$("#deviceFlowEnabled").addEventListener("change", e=>{ state.deviceFlowEnabled = e.target.checked; render(); });
+
+function showHide(){
+  $all("[data-show]").forEach(el=>{
+    el.classList.toggle("hidden", el.dataset.show !== state.auth);
+  });
+  $("#custody-block").classList.toggle("hidden", state.auth!=="B1");
+  $("#stepsApp").classList.toggle("hidden", state.auth!=="B1");
+  $("#stepsOauth").classList.toggle("hidden", state.auth!=="B2");
+  // callback field follows the sign-in flow, not the identity model
+  $all('[data-flow]').forEach(el=>{
+    el.classList.toggle("hidden", el.dataset.flow !== state.flow);
+  });
+}
+
+function validate(){
+  const errs = [];
+  if(!PACKAGE_RE.test(state.pkgName)) errs.push("Android package name must be reverse-DNS (e.g. ai.aether.agent).");
+  if(!state.appName) errs.push("Application name is empty.");
+  if(!CLIENT_ID_RE.test(state.clientId)) errs.push("Client ID is missing or malformed.");
+  if(state.auth==="B1" && !/^\d{4,}$/.test(state.appId)) errs.push("App ID must be numeric (GitHub App only).");
+  if(state.auth==="B1" && state.custody==="C1" && !state.clientSecret) errs.push("Client secret is needed for the token broker.");
+  if(state.auth==="B1" && state.custody==="C1" && !state.privateKeyName) errs.push("Private key file not selected (broker needs it).");
+  if(state.flow==="F2" && !HOST_RE.test(state.brokerUrl)) errs.push("Broker base URL must be https://… for browser redirect.");
+  if(state.flow==="F1" && state.auth==="B2" && !state.deviceFlowEnabled) errs.push("Device flow must be enabled in the OAuth App settings.");
+  if(state.hosting==="A1" || state.hosting==="A2" || state.hosting==="A4"){
+    if(state.workerUrl && !HOST_RE.test(state.workerUrl)) errs.push("Worker endpoint must start with wss:// (or https://).");
+  }
+  return errs;
+}
+
+function render(){
+  showHide();
+  const cb = callbackUrl();
+  const cbInput = $("#callbackUrl"); if(cbInput) cbInput.value = cb;
+
+  // data-bind texts
+  $all("[data-bind]").forEach(el=>{
+    if(el.dataset.bind==="appName") el.textContent = state.appName || "AETHER AI";
+    if(el.dataset.bind==="callbackText") el.textContent = cb;
+  });
+
+  // live field validation
+  const checks = [
+    ["pkgName", PACKAGE_RE.test(state.pkgName)],
+    ["clientId", CLIENT_ID_RE.test(state.clientId)],
+    ["appId", state.auth!=="B1" || /^\d{4,}$/.test(state.appId)],
+    ["brokerUrl", state.flow!=="F2" || HOST_RE.test(state.brokerUrl)],
+    ["workerUrl", !state.workerUrl || HOST_RE.test(state.workerUrl)]
+  ];
+  checks.forEach(([id, ok])=>{
+    const inp = document.getElementById(id); if(!inp) return;
+    const f = inp.closest(".field"); if(f) f.classList.toggle("invalid", !ok && (inp.value||"").length>0);
+  });
+
+  // summary
+  const hostLabel = {A1:"Dedicated compute", A2:"Self-hosted runner", A3:"GitHub-hosted Actions (policy risk)", A4:"Phone-local (Termux)"}[state.hosting];
+  const authLabel = {B1:"GitHub App", B2:"GitHub OAuth App"}[state.auth];
+  const flowLabel = {F1:"Device flow", F2:"Browser redirect + PKCE"}[state.flow];
+  const custLabel = state.auth==="B1" ? ({C1:"Token broker", C2:"Device flow only (no broker)"}[state.custody]) : "n/a (OAuth App)";
+  const scopeList = Object.keys(state.scopes).filter(k=>state.scopes[k]);
+
+  const rows = [
+    ["Runtime hosting", hostLabel + (state.hosting==="A3" ? ' <span class="badtext">— requires risk acceptance</span>' : "")],
+    ["GitHub identity", authLabel],
+    ["Sign-in flow", flowLabel],
+    ["Key custody", custLabel],
+    ["Application name", escapeHtml(state.appName||"—")],
+    ["Package name", "<code>"+escapeHtml(state.pkgName||"—")+"</code>"],
+    ["Callback", "<code>"+escapeHtml(cb)+"</code>"],
+    ["Workspace repo", state.repoOwner ? "<code>"+escapeHtml(state.repoOwner+"/"+(state.repoName||""))+"</code>" : "—"],
+    ["Scopes / permissions", state.auth==="B1" ? "Metadata R · Contents RW · Actions RW · Workflows W" : scopeList.map(s=>"<code>"+escapeHtml(s)+"</code>").join(" · ") || "—"],
+    ["Worker endpoint", state.workerUrl ? "<code>"+escapeHtml(state.workerUrl)+"</code>" : "not set"]
+  ];
+  $("#summary").innerHTML = rows.map(r=>'<div class="srow"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>').join("");
+
+  // manifest
+  const manifest = {
+    product:"AETHER AI",
+    manifestVersion:1,
+    generatedAt:new Date().toISOString(),
+    decisions:{
+      runtimeHosting:state.hosting,
+      githubIdentity:state.auth,
+      signInFlow:state.flow,
+      keyCustody: state.auth==="B1" ? state.custody : null
+    },
+    publicValues:{
+      applicationName:state.appName,
+      appSlug:state.appSlug,
+      appId: state.auth==="B1" ? state.appId : null,
+      clientId:state.clientId,
+      packageName:state.pkgName,
+      callbackUrl:cb,
+      workspaceRepository: state.repoOwner ? state.repoOwner+"/"+state.repoName : null,
+      installationId: state.installationId || null,
+      workerEndpoint: state.workerUrl || null,
+      brokerBaseUrl: state.brokerUrl || null,
+      oauthScopes: state.auth==="B2" ? scopeList : null,
+      webhooksEnabled: !!state.webhooks
+    },
+    secrets:{ note:"Never included. Provide locally via git-ignored .env or secret manager.",
+      clientSecret:"<redacted>", privateKey:"<redacted>", webhookSecret:"<redacted>", providerKeys:"<redacted>" }
+  };
+  $("#manifest").textContent = JSON.stringify(manifest, null, 2);
+
+  // validation panel
+  const errs = validate();
+  const v = $("#validation");
+  if(errs.length===0){
+    v.className = "note ok";
+    v.innerHTML = "<b>Ready.</b> All required public fields are valid. Send the manifest plus your two decisions; keep every secret local.";
+  } else {
+    v.className = "note warn";
+    v.innerHTML = "<b>"+errs.length+" item(s) still need attention:</b><ul style='margin:8px 0 0 18px;padding:0'>"+errs.map(e=>"<li>"+escapeHtml(e)+"</li>").join("")+"</ul>";
+  }
+}
+
+function copyText(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>toast("Copied")).catch(()=>fallbackCopy(text));
+  } else fallbackCopy(text);
+}
+function fallbackCopy(text){
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); toast("Copied"); }catch(e){ toast("Copy failed"); }
+  document.body.removeChild(ta);
+}
+function copyVal(id){
+  const el = document.getElementById(id);
+  if(el && el.value){ copyText(el.value); } else toast("Nothing to copy yet");
+}
+function copyManifest(){ copyText($("#manifest").textContent); }
+
+function copyHandoff(){
+  const cb = callbackUrl();
+  const lines = [
+    "AETHER AI — setup decisions",
+    "Runtime hosting: "+state.hosting+" ("+({A1:"dedicated compute",A2:"self-hosted runner",A3:"GitHub-hosted Actions — policy risk accepted",A4:"Termux"}[state.hosting])+")",
+    "GitHub identity: "+state.auth+" ("+({B1:"GitHub App",B2:"OAuth App"}[state.auth])+")",
+    "Sign-in flow: "+state.flow+" ("+({F1:"device flow",F2:"browser + PKCE"}[state.flow])+")",
+    "Key custody: "+(state.auth==="B1" ? state.custody : "n/a"),
+    "Application name: "+(state.appName||"—"),
+    "App ID: "+(state.appId||"—"),
+    "Client ID: "+(state.clientId||"—"),
+    "Package: "+(state.pkgName||"—"),
+    "Callback: "+cb,
+    "Workspace repo: "+(state.repoOwner? state.repoOwner+"/"+state.repoName : "—"),
+    "Worker endpoint: "+(state.workerUrl||"—"),
+    "Secrets: held locally, not shared."
+  ];
+  copyText(lines.join("\n"));
+}
+
+function downloadManifest(){
+  const blob = new Blob([$("#manifest").textContent], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "aether-setup-manifest.json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  toast("Manifest downloaded");
+}
+
+// keyboard support for option cards
+$all(".opt").forEach(o=>{
+  o.addEventListener("keydown", e=>{
+    if(e.key==="Enter" || e.key===" "){ e.preventDefault(); o.click(); }
+  });
+});
+
+render();
+</script>
+</body>
+</html>
