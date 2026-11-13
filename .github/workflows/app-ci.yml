@@ -1,0 +1,151 @@
+name: App CI
+
+on:
+  push:
+    branches: [ "arena/eb94c696-aether-ai" ]
+    paths:
+      - "app/**"
+      - ".github/workflows/app-ci.yml"
+  pull_request:
+    paths:
+      - "app/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.50.0"
+
+jobs:
+  analyze-test:
+    name: Analyze, format and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Toolchain versions
+        run: |
+          flutter --version
+          dart --version
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Generate localizations
+        run: flutter gen-l10n
+
+      - name: Verify formatting
+        id: fmt
+        continue-on-error: true
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Capture formatted sources (when formatting differs)
+        if: steps.fmt.outcome == 'failure'
+        run: |
+          dart format lib test
+          tar czf /tmp/formatted-sources.tgz lib test
+
+      - name: Upload formatted sources
+        if: steps.fmt.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: formatted-sources
+          path: /tmp/formatted-sources.tgz
+          retention-days: 5
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test --reporter expanded
+
+  android-template:
+    name: Emit Android template for this Flutter version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Create reference project
+        run: |
+          flutter create --platforms=android --org ai.aether --project-name aether_ai /tmp/tpl
+          tar czf /tmp/flutter-android-template.tgz -C /tmp/tpl android
+          tar czf /tmp/flutter-android-template-full.tgz -C /tmp/tpl .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flutter-android-template
+          path: |
+            /tmp/flutter-android-template.tgz
+            /tmp/flutter-android-template-full.tgz
+          retention-days: 7
+
+  build-apk:
+    name: Build debug APK
+    needs: analyze-test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Resolve and generate
+        run: |
+          flutter pub get
+          flutter gen-l10n
+
+      - name: Detect Android platform folder
+        id: android
+        run: |
+          if [ -d android ]; then echo "present=1" >> "$GITHUB_OUTPUT"; else echo "present=0" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Build debug APK
+        if: steps.android.outputs.present == '1'
+        run: flutter build apk --debug
+
+      - name: Checksums
+        if: steps.android.outputs.present == '1'
+        run: |
+          cd build/app/outputs/flutter-apk
+          sha256sum *.apk | tee /tmp/apk-sha256.txt
+
+      - name: Upload APK
+        if: steps.android.outputs.present == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-debug-apk
+          path: |
+            app/build/app/outputs/flutter-apk/*.apk
+            /tmp/apk-sha256.txt
+          retention-days: 14
