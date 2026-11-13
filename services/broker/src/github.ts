@@ -143,7 +143,10 @@ export class GitHubAppAuth {
   }
 
   private async request(path: string, init: RequestInit): Promise<Response> {
-    const response = await this.fetchImpl(`${this.apiBaseUrl}${path}`, {
+    // Bind to nothing: Cloudflare's global fetch throws "Illegal invocation"
+    // when it is called as a method of another object.
+    const fetchImpl = this.fetchImpl;
+    const response = await fetchImpl(`${this.apiBaseUrl}${path}`, {
       ...init,
       signal: AbortSignal.timeout(10_000),
     });

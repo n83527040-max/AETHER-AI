@@ -96,12 +96,13 @@ Not the broker's job: storing prompts, provider keys, or user data.
 | Option | Shape | Free tier reality | Fit | Notes |
 |---|---|---|---|---|
 | **Cloudflare Workers + Durable Objects** | Serverless WebSockets, global | Workers has a free tier; **Durable Objects typically require the paid Workers plan (~$5/mo)** | ★★★★★ | Best latency; DO gives one authoritative object per session; secrets via Wrangler. Verify current pricing. |
-| **Deno Deploy** | Serverless WebSockets + KV | Free hobby tier historically includes WebSockets | ★★★★ | Simple TypeScript deploy; verify current limits |
+| **Cloudflare Workers** | Serverless WebSockets + Durable Objects | Free plan caps requests and duration, not connectors | ★★★★★ | **Selected** (ADR-002): hibernating WebSockets, atomic Durable Objects, existing owner account |
+| ~~Deno Deploy~~ | Serverless WebSockets + KV | — | — | Rejected: registrations closed, platform shut down April 2027 |
 | **Fly.io** | Small always-on machine | Pay-as-you-go, no reliable free tier | ★★★★ | Full control, WebSocket-friendly, ~$2–5/mo for a shared-cpu-1x |
 | **Small VPS** (Hetzner/Contabo) | Root Linux box | None | ★★★ | ~€4/mo; you patch it; most work |
 | **Supabase Realtime** | Managed channels + RLS | Free tier exists | ★★ | No custom relay logic; awkward for broker secrets and frame control |
 
-**Recommendation:** start on **Deno Deploy** (free, WebSockets, single TypeScript file) and move to **Cloudflare + Durable Objects** if you want per-session isolation and stronger SLAs. Either way the broker holds the App private key; treat it as a secret-bearing service.
+**Decision:** **Cloudflare Workers**, with one `RelaySession` Durable Object per session and a `TicketVault` object for single-use tickets (ADR-002). The broker still holds the App private key, so it remains a secret-bearing service and gets the smallest possible surface.
 
 **Minimum broker footprint:** one HTTPS endpoint (`/oauth/device`, `/oauth/refresh`, `/ticket`), one WSS endpoint (`/relay`), ~400 lines of TypeScript, one KV/DO namespace. No database required beyond session tickets.
 
@@ -146,9 +147,9 @@ Settings → About → Runtime will state plainly:
 ## 8. Approval checklist
 
 - [x] Tier 2 relay approved (vs Tier 1 only) — owner approved 2026-11-13 and asked for the broker to be built now.
-- [x] Relay host chosen (§5) and region noted — **Deno Deploy**, global anycast edge with no region pinning on the free tier; Deno KV is used for single-use tickets.
-- [x] Relay domain/subdomain available for TLS — Deno Deploy issues `<project>.deno.dev` with managed TLS. A custom domain is optional and not required for the build.
+- [x] Relay host chosen (§5) and region noted — **Cloudflare Workers** (`aether-broker`), deployed to the `workers.dev` edge; Durable Objects provide ticket atomicity and per-session relay coordination (ADR-002).
+- [x] Relay domain/subdomain available for TLS — Cloudflare issues `aether-broker.<account>.workers.dev` with managed TLS. A custom domain is optional and not required for the build.
 - [x] Confirmed that the App private key will be stored only in the relay's secret store — implemented as `AETHER_GITHUB_APP_PRIVATE_KEY`, read from the environment and never serialised into a response, log line, or repository.
 - [x] Confirmed provider API keys go to the worker via Actions secrets, never through the relay — the relay forwards opaque frames and never parses payloads, so no provider key can transit it by design.
 
-Implementation status: `services/broker/` is written and verified by `Broker CI` (typecheck, 30 unit tests, Deno check). Deployment is the remaining step and needs the owner's GitHub App `client_id`, `client_secret`, App ID and private key entered directly into Deno Deploy's secret store.
+Implementation status: `services/broker/` is written and verified by `Broker CI` (strict typecheck, 38 unit tests, 8 workerd tests, wrangler dry-run). Local `wrangler dev` returned a real GitHub `user_code`. Deployment is the remaining step: the owner adds `AETHER_GITHUB_CLIENT_SECRET` and `AETHER_GITHUB_APP_PRIVATE_KEY` as Cloudflare secrets, then runs the deploy.

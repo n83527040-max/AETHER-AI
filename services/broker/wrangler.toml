@@ -1,0 +1,30 @@
+# AETHER broker + relay — Cloudflare Worker
+# Deployed from this directory (`services/broker`), not from the repository root.
+name = "aether-broker"
+main = "src/worker.ts"
+compatibility_date = "2026-10-01"
+workers_dev = true
+preview_urls = true
+
+[observability]
+enabled = true
+
+[durable_objects]
+bindings = [
+  { name = "TICKETS", class_name = "TicketVault" },
+  { name = "SESSIONS", class_name = "RelaySession" },
+  { name = "REGISTRY", class_name = "RelayRegistry" },
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TicketVault", "RelaySession", "RelayRegistry"]
+
+# Public identifiers only. Secrets are set with `wrangler secret put`
+# and never exist in this file, in Git, or in the APK.
+[vars]
+AETHER_GITHUB_APP_ID = "5750435"
+AETHER_GITHUB_CLIENT_ID = "Iv23ctJ8d5xFlRUU9mIm"
+AETHER_ALLOWED_REPOSITORY = "n83527040-max/AETHER-AI"
+AETHER_RELAY_AUDIENCE = "aether-relay"
+AETHER_VERSION = "0.2.0"

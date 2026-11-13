@@ -1,7 +1,6 @@
 import { AppError, errorResponse, json } from "./errors.ts";
 import type { GitHubAppAuth, GitHubUser } from "./github.ts";
 import type { BrokerConfig } from "./config.ts";
-import type { Relay } from "./relay.ts";
 import type { TicketService } from "./tickets.ts";
 
 type UserVerifier = Pick<GitHubAppAuth, "verifyUserToken">;
@@ -10,7 +9,11 @@ export interface HandlerDeps {
   config: BrokerConfig;
   github: UserVerifier;
   tickets: TicketService;
-  relay: Relay;
+  /** Live relay counters. In Workers these come from a Durable Object. */
+  stats?: () => Promise<{ sessions: number; connections: number }> | {
+    sessions: number;
+    connections: number;
+  };
   fetchImpl?: typeof fetch;
   oidc?: (token: string) => Promise<Record<string, unknown>>;
   now?: () => number;
@@ -149,7 +152,7 @@ export function createHandler(deps: HandlerDeps): (request: Request) => Promise<
             status: "ok",
             version,
             time: new Date(now()).toISOString(),
-            relay: deps.relay.stats(),
+            relay: deps.stats ? await deps.stats() : { sessions: 0, connections: 0 },
           },
           cors,
         );
@@ -287,6 +290,8 @@ export function createHandler(deps: HandlerDeps): (request: Request) => Promise<
 
       return json(404, { error: { code: "not_found", message: "Unknown route." } }, cors);
     } catch (error) {
+      // Structured, secret-free diagnostics: names and messages only.
+      console.error("broker_error", error instanceof Error ? `${error.name}: ${error.message}` : typeof error);
       const response = errorResponse(error);
       for (const [key, value] of Object.entries(cors)) {
         response.headers.set(key, value);

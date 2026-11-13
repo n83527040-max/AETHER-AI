@@ -121,3 +121,22 @@ test("rejects malformed and revoked user tokens", async () => {
     (error: unknown) => error instanceof GitHubError && error.status === 401,
   );
 });
+
+test("never calls fetch as a method (Cloudflare Illegal invocation guard)", async () => {
+  const fetchImpl = function fakeFetch(this: unknown) {
+    assert.equal(this, undefined, "fetch must not be invoked with a receiver");
+    return Promise.resolve(
+      new Response(JSON.stringify({ id: 9, login: "bound-check" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  };
+  const auth = await GitHubAppAuth.create({
+    appId: "1",
+    privateKeyPem: pkcs1Pem,
+    fetchImpl: fetchImpl as unknown as typeof fetch,
+  });
+  const user = await auth.verifyUserToken("ghu_abcdefghijklmnopqrstuvwxyz");
+  assert.equal(user.login, "bound-check");
+});

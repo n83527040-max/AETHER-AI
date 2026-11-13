@@ -2,13 +2,14 @@ name: Broker CI
 
 on:
   push:
-    branches: [ "arena/eb94c696-aether-ai" ]
+    branches: [ "arena/eb94c696-aether-ai", "main" ]
     paths:
       - "services/broker/**"
       - ".github/workflows/broker-ci.yml"
   pull_request:
     paths:
       - "services/broker/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,28 +18,88 @@ concurrency:
   group: broker-ci-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    working-directory: services/broker
+
 jobs:
   verify:
-    name: Typecheck, test, Deno check
+    name: Typecheck, unit tests, Worker tests, bundle
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/broker
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: services/broker/package-lock.json
 
-      - name: Install dev dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: TypeScript typecheck (strict)
+      - name: TypeScript typecheck (node + worker configs)
         run: npm run typecheck
 
-      - name: Unit tests
+      - name: Unit tests (JWT, GitHub App, OIDC, tickets, relay, HTTP)
         run: npm test
 
-      - name: Deno type check
-        run: npm run check
+      - name: Worker tests (Durable Objects, WebSocket relay, /health)
+        run: npm run test:worker
+
+      - name: Bundle with wrangler (dry run, no credentials needed)
+        run: npm run build
+
+  deploy:
+    name: Deploy to Cloudflare Workers
+    needs: verify
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/arena/eb94c696-aether-ai' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/broker/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Secrets cannot be read from a job-level `if`, so detect them here and
+      # skip deployment (with a visible notice) when they are not configured.
+      - name: Check Cloudflare credentials
+        id: creds
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$ACCOUNT" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set; skipping deployment."
+          fi
+
+      - name: Deploy
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -o pipefail
+          npx wrangler deploy 2>&1 | tee deploy.log
+
+      - name: Verify the live /health endpoint
+        if: steps.creds.outputs.ready == 'true'
+        run: |
+          URL=$(grep -ohE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          if [ -z "$URL" ]; then
+            echo "::error::Could not determine the deployed workers.dev URL from wrangler output."
+            exit 1
+          fi
+          echo "Checking $URL/health"
+          body=$(curl -fsS "$URL/health")
+          echo "$body"
+          echo "$body" | grep -q '"status":"ok"' || { echo "::error::Health check did not report status ok"; exit 1; }

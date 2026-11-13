@@ -1,13 +1,17 @@
-# AETHER broker + relay
+# AETHER broker + relay (Cloudflare Workers)
 
-A deliberately small Deno Deploy service with two jobs:
+A small Worker with two responsibilities:
 
-1. **Token broker** — holds the GitHub App private key and client secret, verifies user tokens, and mints short-lived relay tickets.
+1. **Token broker** — holds the GitHub App private key and client secret, runs the device flow, verifies GitHub user tokens, and mints short-lived relay tickets.
 2. **WebSocket relay** — forwards opaque frames between the Android app and the GitHub Actions worker.
 
-It is **not** the agent host. It never runs Hermes, never stores prompts, and has no database beyond single-use tickets.
+It is **not** the agent host. Hermes keeps running on GitHub-hosted Actions; this Worker never executes agent code, never stores prompts, and keeps no database beyond unspent tickets and live session metadata.
 
-Deploy target: **Deno Deploy** (selected 2026-11-13). Runtime: Deno with built-in KV.
+```
+Android app ──WSS──┐
+                   ├── Cloudflare Worker "aether-broker" ── Durable Objects
+Actions worker ────┘        (git identity + tickets)        (tickets, sessions, counters)
+```
 
 ---
 
@@ -15,91 +19,125 @@ Deploy target: **Deno Deploy** (selected 2026-11-13). Runtime: Deno with built-i
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/health` | none | Liveness + relay statistics (no sensitive data) |
-| POST | `/oauth/device/start` | none | Start GitHub device flow; returns `user_code` + `device_code` |
-| POST | `/oauth/device/poll` | none | Poll for the user token; passes GitHub errors through unchanged |
-| POST | `/oauth/refresh` | refresh token | Refresh an 8-hour user token using the client secret |
-| POST | `/ticket` | GitHub user token | Mint a single-use **app** relay ticket for a session |
-| POST | `/worker/ticket` | Actions OIDC token | Mint a single-use **worker** ticket, bound to repo + run |
-| GET | `/relay?ticket=…` | ticket | WebSocket upgrade; frames forwarded only to the opposite role |
+| GET | `/health` | none | Liveness, version, config state, live relay counters |
+| POST | `/oauth/device/start` | none | Begin GitHub device flow (`client_id` only) |
+| POST | `/oauth/device/poll` | none | Poll for the user token; GitHub errors pass through |
+| POST | `/oauth/refresh` | refresh token | Refresh an 8-hour token using the client secret, server-side |
+| POST | `/ticket` | GitHub user token | Mint a **single-use** `app` relay ticket |
+| POST | `/worker/ticket` | Actions OIDC token | Mint a **single-use** `worker` ticket bound to repo + run |
+| GET | `/relay?ticket=…` | ticket | WebSocket upgrade, routed to that session's Durable Object |
 
-### Ticket properties
-- 32 random bytes, base64url, stored in Deno KV with a TTL (default 60 s).
-- **Atomically single-use** — consumed by `kv.atomic().check().delete()`.
-- Bound to `session_id`, `role`, `repository`, and (worker) `run_id`.
-- Reconnect requires a new ticket; nothing long-lived is handed to either side.
-
-### Worker identity without shared secrets
-The GitHub Actions job requests an OIDC token (`permissions: id-token: write`). The broker verifies it against GitHub's JWKS, then checks:
-`iss`, `aud` (must be `AETHER_RELAY_AUDIENCE`), `exp`, and `repository` (must equal `AETHER_ALLOWED_REPOSITORY`).
-No static worker secret exists to leak.
+Behaviour is unchanged from the previous Deno implementation, apart from the transport.
 
 ---
 
-## Environment
+## Durable Objects
 
-| Variable | Class | Required | Notes |
-|---|---|---|---|
-| `AETHER_GITHUB_APP_ID` | Public | ✅ | Numeric App ID |
-| `AETHER_GITHUB_CLIENT_ID` | Public | ✅ | Used for device flow and refresh |
-| `AETHER_GITHUB_CLIENT_SECRET` | **Secret** | ✅ | Refresh only; never sent to the app |
-| `AETHER_GITHUB_APP_PRIVATE_KEY` | **Secret** | ✅ | PKCS#1 or PKCS#8 PEM; `\n` escapes accepted |
-| `AETHER_ALLOWED_REPOSITORY` | Public | ✅ | `owner/name`; single-tenant by design |
-| `AETHER_RELAY_AUDIENCE` | Public | ➖ | Default `aether-relay` |
-| `AETHER_TICKET_TTL_MS` | Public | ➖ | 15 s–5 min, default 60 s |
-| `AETHER_ALLOWED_ORIGINS` | Public | ➖ | Comma-separated; only needed for a web client |
-| `AETHER_GITHUB_API_BASE_URL` | Public | ➖ | For GitHub Enterprise |
+| Class | Binding | Responsibility |
+|---|---|---|
+| `TicketVault` | `TICKETS` | All unspent tickets. `take` reads and deletes inside one event, so a ticket can be spent once even under concurrent requests. An alarm deletes expired records. |
+| `RelaySession` | `SESSIONS` | One per session id. Owns the app and worker WebSockets, binds the session to one repository, enforces frame size, rate limits, heartbeat, and reconnect replacement (close 4001). Hibernatable: idle sessions cost nothing and payloads are never written to storage. |
+| `RelayRegistry` | `REGISTRY` | Join/leave counters for `/health`; entries older than 30 minutes are pruned. |
 
-Configuration is validated at boot and **fails closed**. No secret is ever logged or returned in a response.
+Cloudflare KV is deliberately **not** used: every piece of state here needs read-then-write atomicity or per-session coordination, which KV does not provide.
 
 ---
 
-## Deploy to Deno Deploy
+## Cloudflare configuration
 
-1. Create the app at <https://dash.deno.com> → **New Project** → link this repository.
-2. Entry point: `services/broker/src/main.ts`.
-3. Add every required variable above under **Settings → Environment Variables** (mark the two secrets as secrets).
-4. Deploy. Deno KV is provisioned automatically and used for tickets.
-5. Verify:
+`wrangler.toml` is committed and contains only public values:
+
+| Name | Kind | Value / source |
+|---|---|---|
+| `AETHER_GITHUB_APP_ID` | var | `5750435` |
+| `AETHER_GITHUB_CLIENT_ID` | var | `Iv23ctJ8d5xFlRUU9mIm` |
+| `AETHER_ALLOWED_REPOSITORY` | var | `n83527040-max/AETHER-AI` |
+| `AETHER_RELAY_AUDIENCE` | var | `aether-relay` |
+| `AETHER_GITHUB_CLIENT_SECRET` | **secret** | GitHub App settings → Client secrets |
+| `AETHER_GITHUB_APP_PRIVATE_KEY` | **secret** | GitHub App settings → Private keys (`.pem` contents) |
+
+> **Client ID correction.** The value supplied in chat was `Iv23ctJ8d5xFIRUU9mIm`.
+> GitHub's public API (`GET https://api.github.com/apps/AETHER-AI-Assistant`) reports
+> `Iv23ctJ8d5x**Fl**RUU9mIm` — an `l`, not an `I`. With the original value the device
+> endpoint answers `{"error":"Not Found"}`; with the corrected value it returns a real
+> `user_code`. `wrangler.toml` uses the corrected, API-verified value.
+
+### Adding the two secrets (pick one)
+
+**Dashboard:** Workers & Pages → `aether-broker` → Settings → Variables and Secrets → *Add* → type **Secret** →
+`AETHER_GITHUB_CLIENT_SECRET`, then repeat for `AETHER_GITHUB_APP_PRIVATE_KEY`.
+Paste the PEM exactly as downloaded (multi-line); Wrangler stores it encrypted.
+
+**Wrangler (from `services/broker`):**
 
 ```bash
-curl https://<your-app>.deno.dev/health
-# {"status":"ok","version":"0.1.0","time":"…","relay":{"sessions":0,"connections":0}}
+npx wrangler login
+npx wrangler secret put AETHER_GITHUB_CLIENT_SECRET
+npx wrangler secret put AETHER_GITHUB_APP_PRIVATE_KEY
 ```
 
-6. Put the app URL into the Android build flag `AETHER_BROKER_URL`.
+Neither value is ever printed by this Worker, written to logs, returned by an endpoint, or included in the Android build.
 
-> `Deno.openKv()` is flagged as unstable in the Deno 2.9 CLI type library, so local runs pass
-> `--unstable-kv` (`npm run dev`). Deno Deploy exposes KV without that flag; `deno check` includes
-> the `deno.unstable` lib so the same source type-checks in both places.
+---
 
-### Local development
+## Deployment
+
+### Workers Builds (the GitHub setup screen)
+
+| Setting | Value |
+|---|---|
+| Repository | `n83527040-max/AETHER-AI` |
+| Production branch | `arena/eb94c696-aether-ai` (or `main` once merged) |
+| **Root directory** | `services/broker` |
+| Build command | `npm ci` |
+| Deploy command | `npx wrangler deploy` |
+| Worker name | `aether-broker` (from `wrangler.toml`) |
+
+The root directory is **not** the repository root: `wrangler.toml` lives in `services/broker`.
+
+### Local
 
 ```bash
 cd services/broker
-cp .env.example .env    # fill locally; .env is git-ignored
-npm run dev          # deno run --unstable-kv --allow-net --allow-env --allow-sys src/main.ts
+cp .dev.vars.example .dev.vars     # fill with real values; git-ignored
+npm ci
+npm run dev                        # http://127.0.0.1:8788
+```
+
+### Manual deploy
+
+```bash
+cd services/broker
+npm ci
+npx wrangler deploy
+curl -fsS https://aether-broker.<your-subdomain>.workers.dev/health
 ```
 
 ---
 
-## Verification (runs without Deno)
+## Verification
 
 ```bash
-npm install
-npm run typecheck     # tsc strict, including the Deno entrypoint via an ambient shim
-npm test              # 30 tests, Node's built-in runner
-npm run check         # deno check (Deno ships as a devDependency, pinning the runtime)
+npm run typecheck   # strict tsc for the Node sources and the Worker sources
+npm test            # 38 tests — node:test
+npm run test:worker # 8 tests — real workerd, real Durable Objects, real WebSockets
+npm run build       # wrangler deploy --dry-run (bundles without credentials)
 ```
 
-Coverage highlights:
+| Requirement | How it is checked | Status |
+|---|---|---|
+| Ticket atomicity / single use | 10 concurrent `take` calls yield exactly 1 ticket (workerd) | ✅ automated |
+| Session + repository binding | Second repo cannot join an existing session (403) | ✅ automated |
+| Relay connection coordination | app↔worker forwarding, replays rejected, socket replacement 4001 | ✅ automated |
+| Frame size / rate limit / heartbeat | Unit tests on the relay core + Worker tests | ✅ automated |
+| GitHub device flow | Live call through `wrangler dev` to GitHub: `200` + real `user_code` | ✅ verified 2026-11-13 |
+| Device poll error passthrough | Live call returned `authorization_pending` | ✅ verified 2026-11-13 |
+| Invalid user token handling | Live call rejected with `401 github_token_rejected` | ✅ verified 2026-11-13 |
+| Actions OIDC verification | 7 tests: signature, issuer, audience, repository, expiry, JWKS outage | ✅ automated |
+| `/health` | Local Worker `200 {"status":"ok"}`; live check runs in CI after deploy | ✅ local / ⏳ production |
+| Live deployment | Requires your Cloudflare credentials | ⏳ **not verified** |
 
-- JWT RS256/HS256 round trip, tamper, expiry, algorithm confusion.
-- **PKCS#1 → PKCS#8** wrapping, verified by signing with an OpenSSL-generated key and verifying with its public half.
-- Installation-token caching (one network call for two reads).
-- Ticket single-use, role binding, expiry, malformed IDs.
-- Relay routing, peer-absence, oversized frames, rate limiting, socket replacement, stale sweep.
-- HTTP: device-flow proxying (no secret in the request), GitHub error passthrough, bearer enforcement, repository binding, worker OIDC path, structured 404.
+A real Actions OIDC token only exists inside a running workflow, so the first true end-to-end OIDC check happens when the worker workflow runs.
 
 ---
 
@@ -107,24 +145,21 @@ Coverage highlights:
 
 | Threat | Mitigation |
 |---|---|
-| App reverse-engineered | No client secret, private key, or provider key in the APK |
-| Stolen user token | Short-lived (8 h), verified against GitHub, only mints tickets |
-| Replayed relay ticket | Single-use, 60 s TTL, KV compare-and-delete |
-| Foreign repository | `repository` claim must equal `AETHER_ALLOWED_REPOSITORY` |
-| Rogue worker | Must present a GitHub-signed OIDC token for the same repo |
-| Frame flooding | 256 KiB frame cap, 60 msg/s per role, close codes 1009/1008 |
-| Silent sessions | 45 s heartbeat sweep, close code 4000 |
-| Secret leakage in logs | Payloads are never inspected or logged; only counts and timings |
+| App reverse-engineered | No client secret, App private key, or provider key in the APK |
+| Stolen user token | Short-lived, verified against GitHub, can only mint tickets |
+| Replayed relay ticket | Single-use read-and-delete in one Durable Object event, 60 s TTL |
+| Foreign repository | Ticket claim and session binding must equal `AETHER_ALLOWED_REPOSITORY` |
+| Rogue worker | GitHub-signed OIDC token for the same repository, audience checked |
+| Frame flooding | 256 KiB cap, 60 msg/s per connection, close codes 1009/1008 |
+| Silent sessions | 15 s alarm sweep, close code 4000 after 45 s of silence |
+| Secret leakage | Secrets only in Cloudflare's encrypted store; logs contain names and messages, never payloads or tokens |
 
-### Explicit non-goals
-- No end-to-end encryption above TLS/WSS. The relay must see frame boundaries to route them.
-- No message store. If neither side is connected, frames are dropped; durable state lives in checkpoints in the private repository.
-- No multi-tenant routing. One broker instance serves one repository.
+Not provided: end-to-end encryption above TLS (the relay must see frame boundaries), message persistence (checkpoints live in the private repository), and multi-tenancy (one broker ↔ one repository).
 
 ---
 
-## Protocol notes for the worker
+## Cost
 
-The relay is transport-agnostic: it forwards text frames as-is. The worker adapter is responsible for
-speaking Hermes' `hermes-gateway-v1` JSON-RPC over that tunnel (see the Hermes gateway docs). Keeping the
-relay dumb means a Hermes protocol change does not require redeploying the broker.
+Workers Free covers this comfortably for a single user: Durable Object requests are billed per request
+(not per idle second) while WebSockets hibernate, and the relay is quiet when you are not chatting.
+Paid Workers ($5/month) is only needed if you exceed the free request/duration allowances.

@@ -251,7 +251,7 @@ footer .cols{display:flex; gap:18px; flex-wrap:wrap; justify-content:space-betwe
       <div class="card">
         <h1>Step 1 · Choose where Hermes runs</h1>
         <div class="note">
-          <b>Decision recorded 2026-11-13 (ADR-001).</b> GitHub-hosted Actions (A3) is the runtime, chosen by the owner with the policy risk explicitly accepted; no host swap without written approval. The token broker and relay that support it are already built and tested, and deploy to <b>Deno Deploy</b> (free tier) rather than to GitHub.
+          <b>Decision recorded 2026-11-13 (ADR-001).</b> GitHub-hosted Actions (A3) is the runtime, chosen by the owner with the policy risk explicitly accepted; no host swap without written approval. The token broker and relay that support it are already built and tested on <b>Cloudflare Workers</b> (Durable Objects), not on GitHub.
         </div>
         <p class="lead">AETHER's client is Flutter on Android. The agent runtime is a separate long-lived Hermes gateway.
         GitHub Actions was the requested host — research shows it fits the 6-hour ceiling but <b>not</b> GitHub's terms of service for interactive workloads.</p>

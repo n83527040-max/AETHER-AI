@@ -3,7 +3,6 @@ import test from "node:test";
 
 import type { BrokerConfig } from "../src/config.ts";
 import { createHandler } from "../src/http.ts";
-import { Relay } from "../src/relay.ts";
 import { InMemoryTicketBackend, TicketService } from "../src/tickets.ts";
 
 const config: BrokerConfig = {
@@ -20,21 +19,20 @@ const config: BrokerConfig = {
 
 function build(overrides: { fetchImpl?: typeof fetch; oidc?: boolean } = {}) {
   const tickets = new TicketService(new InMemoryTicketBackend());
-  const relay = new Relay();
   const handler = createHandler({
     config,
     github: {
       verifyUserToken: async () => ({ id: 7, login: "octocat", avatarUrl: null }),
     },
     tickets,
-    relay,
+    stats: () => ({ sessions: 0, connections: 0 }),
     fetchImpl: overrides.fetchImpl ?? (fetch as typeof fetch),
     oidc: overrides.oidc
       ? async () => ({ repository: "owner/repo", run_id: "99" })
       : undefined,
     now: () => 1_700_000_000_000,
   });
-  return { handler, tickets, relay };
+  return { handler, tickets };
 }
 
 function post(path: string, body: unknown, headers: Record<string, string> = {}): Request {

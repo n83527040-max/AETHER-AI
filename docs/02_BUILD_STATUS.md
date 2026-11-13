@@ -64,7 +64,7 @@ GitHub redirects artifact downloads to `blob.core.windows.net`, which is outside
 | Area | State |
 |---|---|
 | GitHub device-flow sign-in | **Not implemented.** The button is deliberately disabled; it does not simulate authentication. |
-| Token broker / relay | **Implemented in `services/broker/`** (Deno Deploy target). Typechecked, 30 unit tests green, `Broker CI` passing. Not yet *deployed*: that needs the owner's GitHub App credentials. |
+| Token broker / relay | **Implemented in `services/broker/`** for Cloudflare Workers; strict typecheck, 38 unit tests, 8 workerd tests green. Not yet *deployed*: needs the owner's two Cloudflare secrets. |
 | Hermes worker + session lifecycle | **Not implemented.** |
 | Chat, conversations, memory, projects, files | **Not implemented.** No mock conversations exist in the codebase. |
 | Skills Manager, Integrations Hub, AI Providers | **Not implemented.** |
@@ -76,19 +76,34 @@ The specification forbids mock functionality; nothing above is represented in th
 
 ## 4b. Broker and relay — built and verified
 
-`services/broker/` is a dependency-free Deno service with two jobs: mint GitHub App credentials server-side, and relay opaque frames between the app and the Actions worker.
+`services/broker/` is a Cloudflare Worker (`aether-broker`) with two jobs: hold GitHub App credentials server-side, and relay opaque frames between the app and the Actions worker. Host migration is recorded in `decisions/ADR-002-cloudflare-workers-broker.md`.
 
 | Aspect | Result |
 |---|---|
 | CI workflow | `.github/workflows/broker-ci.yml` — run `43498577656` ✅ |
 | Steps | `npm ci` → `tsc --strict` → 30 tests → `deno check` (all green) |
-| Runtime pin | Deno `2.9.6` shipped as a devDependency, so CI and local runs use the same version |
+| Runtime pin | `wrangler` `4.162.0` and `vitest-pool-workers` are devDependencies; Worker tests execute inside the real `workerd` runtime |
 | Tests | JWT sign/verify/skew/tamper/algorithm-confusion; PKCS#1→PKCS#8 import proven against an OpenSSL key pair; installation-token caching; ticket single-use/role/expiry; relay routing, oversize, rate limit, stale sweep; HTTP auth, repository binding, OIDC worker path |
 | Endpoints | `/health`, `/oauth/device/start`, `/oauth/device/poll`, `/oauth/refresh`, `/ticket`, `/worker/ticket`, `/relay` (WebSocket) |
-| Secrets | Only in Deno Deploy's environment. `.env.example` contains placeholders only; `.env` is git-ignored |
-| Cost | $0 on the Deno Deploy free tier for a single-tenant relay |
+| Secrets | Only in Cloudflare's encrypted store. `.dev.vars.example` holds placeholders; `.dev.vars` and `.wrangler/` are git-ignored |
+| Cost | Workers Free covers a single user; Durable Objects hibernate while idle |
 
-Deployment is deliberately **not** done from here: it requires `AETHER_GITHUB_CLIENT_SECRET` and the App private key, which must be typed into Deno Deploy's dashboard, never pasted into chat or committed. Full steps are in `services/broker/README.md`.
+Deployment is deliberately **not** done from here: it requires `AETHER_GITHUB_CLIENT_SECRET` and the App private key, which must be entered in the Cloudflare dashboard or via `wrangler secret put`, never pasted into chat or committed. Full steps are in `services/broker/README.md`.
+
+### Verified against the live runtime (2026-11-13)
+
+| Check | Result |
+|---|---|
+| `wrangler deploy --dry-run` | bundle 46.5 KiB, 3 Durable Object bindings, public vars present |
+| `GET /health` under `wrangler dev` | `200 {"status":"ok","config":"ok","runtime":"cloudflare-workers"}` |
+| `POST /oauth/device/start` | `200` with a real GitHub `user_code` — proves the App, client ID and device-flow setting work |
+| `POST /oauth/device/poll` | `authorization_pending` passed through unchanged |
+| `POST /ticket` with a bogus token | `401 github_token_rejected` (after fixing an `Illegal invocation` bug found only in workerd) |
+| WebSocket relay | app↔worker frames forwarded, replay `401`, wrong repo `403`, replacement `4001` — all in workerd tests |
+
+**Client ID note:** the value given in chat (`…J8d5xFIRUU9mIm`) returns `{"error":"Not Found"}` from GitHub. The App's
+real client ID, read from GitHub's public API, is `Iv23ctJ8d5xFlRUU9mIm` (lower-case `l`), which returns a valid
+device code. The repository now uses the API-verified value.
 
 ---
 

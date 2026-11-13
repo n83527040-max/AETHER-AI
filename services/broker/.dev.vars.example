@@ -1,0 +1,14 @@
+# Local development only — copy to `.dev.vars` (git-ignored).
+# Production values live in Cloudflare secrets, never in this file or in Git.
+
+AETHER_GITHUB_APP_ID=5750435
+AETHER_GITHUB_CLIENT_ID=Iv23ctJ8d5xFlRUU9mIm
+
+# Real values come from the GitHub App settings page. Both are secrets.
+AETHER_GITHUB_CLIENT_SECRET=replace-me
+AETHER_GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nreplace-me\n-----END RSA PRIVATE KEY-----"
+
+AETHER_ALLOWED_REPOSITORY=n83527040-max/AETHER-AI
+AETHER_RELAY_AUDIENCE=aether-relay
+AETHER_TICKET_TTL_MS=60000
+AETHER_VERSION=0.2.0-dev
