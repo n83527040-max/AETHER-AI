@@ -8,7 +8,9 @@ import { TicketService } from "./tickets.ts";
 import type { TicketClaims } from "./tickets.ts";
 
 const config = parseConfig(Deno.env.toObject());
-const kv = (await Deno.openKv()) as KvLike;
+// Deno's Kv type is structurally wider than KvLike (commit results, versionstamps).
+// The behaviours relied on here are covered by src/deno_kv.ts and test/tickets.test.ts.
+const kv = (await Deno.openKv()) as unknown as KvLike;
 const github = await GitHubAppAuth.create({
   appId: config.githubAppId,
   privateKeyPem: config.githubAppPrivateKey,

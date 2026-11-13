@@ -6,7 +6,7 @@ interface KvEntry<T> {
 
 export interface KvLike {
   get<T>(key: string[]): Promise<KvEntry<T> | null>;
-  set(key: string[], value: unknown, options?: { expireIn?: number }): Promise<void>;
+  set(key: string[], value: unknown, options?: { expireIn?: number }): Promise<unknown>;
   atomic(): {
     check(...entries: unknown[]): {
       delete(key: string[]): { commit(): Promise<{ ok: boolean }> };

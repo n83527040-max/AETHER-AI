@@ -69,12 +69,16 @@ curl https://<your-app>.deno.dev/health
 
 6. Put the app URL into the Android build flag `AETHER_BROKER_URL`.
 
+> `Deno.openKv()` is flagged as unstable in the Deno 2.9 CLI type library, so local runs pass
+> `--unstable-kv` (`npm run dev`). Deno Deploy exposes KV without that flag; `deno check` includes
+> the `deno.unstable` lib so the same source type-checks in both places.
+
 ### Local development
 
 ```bash
 cd services/broker
 cp .env.example .env    # fill locally; .env is git-ignored
-deno run --allow-net --allow-env --allow-sys --env-file=.env src/main.ts
+npm run dev          # deno run --unstable-kv --allow-net --allow-env --allow-sys src/main.ts
 ```
 
 ---
@@ -85,7 +89,7 @@ deno run --allow-net --allow-env --allow-sys --env-file=.env src/main.ts
 npm install
 npm run typecheck     # tsc strict, including the Deno entrypoint via an ambient shim
 npm test              # 30 tests, Node's built-in runner
-deno check src/main.ts
+npm run check         # deno check (Deno ships as a devDependency, pinning the runtime)
 ```
 
 Coverage highlights:

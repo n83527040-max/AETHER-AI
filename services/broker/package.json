@@ -6,10 +6,12 @@
   "description": "AETHER token broker and WebSocket relay (Deno Deploy)",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "node --test test/*.test.ts"
+    "test": "node --test test/*.test.ts",
+    "check": "deno check src/main.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "deno": "^2.9.6"
   }
 }
