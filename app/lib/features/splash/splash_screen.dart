@@ -68,9 +68,10 @@ class _SplashScreenState extends State<SplashScreen>
                       const SizedBox(height: 30),
                       Text(
                         context.l10n.appName,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              letterSpacing: 6,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  letterSpacing: 6,
+                                ),
                       ),
                       const SizedBox(height: 10),
                       Text(

@@ -7,6 +7,8 @@ analyzer:
   errors:
     avoid_print: error
     prefer_const_constructors: warning
+  exclude:
+    - build/**
 
 linter:
   rules:

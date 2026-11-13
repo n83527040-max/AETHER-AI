@@ -42,7 +42,8 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
-  testWidgets('shows a spinner instead of the icon while loading', (tester) async {
+  testWidgets('shows a spinner instead of the icon while loading',
+      (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AetherTheme.dark(),

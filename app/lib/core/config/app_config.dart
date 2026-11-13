@@ -33,8 +33,7 @@ class AppConfig {
     return true;
   }
 
-  static bool get hasGithubClientId =>
-      isUsable(githubClientId, minLength: 10);
+  static bool get hasGithubClientId => isUsable(githubClientId, minLength: 10);
 
   static bool get hasBrokerUrl =>
       isUsable(brokerBaseUrl, minLength: 12) &&
@@ -58,7 +57,8 @@ class AppConfig {
           value: githubAppSlug,
           isSet: isUsable(githubAppSlug, minLength: 3),
           isRequired: false,
-          description: 'Public slug used in installation links and diagnostics.',
+          description:
+              'Public slug used in installation links and diagnostics.',
         ),
         ConfigField(
           key: 'AETHER_BROKER_URL',
