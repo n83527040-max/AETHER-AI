@@ -1,0 +1,66 @@
+name: Diagnostics
+
+# Manual helper: records toolchain output and applies dart format, then commits
+# the result so the report is readable from any environment.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  report:
+    name: Collect analyzer report
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.50.0"
+          cache: true
+
+      - name: Collect report
+        run: |
+          mkdir -p ../.ci
+          {
+            echo "=== flutter ==="
+            flutter --version 2>&1
+            echo
+            echo "=== pub get ==="
+            flutter pub get 2>&1
+            echo
+            echo "=== gen-l10n ==="
+            flutter gen-l10n 2>&1
+            echo
+            echo "=== format check (before) ==="
+            dart format --output=none --set-exit-if-changed lib test 2>&1 || true
+            echo
+            echo "=== analyze ==="
+            flutter analyze 2>&1 || true
+            echo
+            echo "=== test ==="
+            flutter test --reporter expanded 2>&1 || true
+          } > ../.ci/report.txt
+          echo "--- applying dart format ---" | tee -a ../.ci/report.txt
+          dart format lib test 2>&1 | tail -3 | tee -a ../.ci/report.txt
+          echo
+          echo "=== format check (after) ===" | tee -a ../.ci/report.txt
+          dart format --output=none --set-exit-if-changed lib test 2>&1 | tee -a ../.ci/report.txt || true
+
+      - name: Commit diagnostics
+        working-directory: .
+        run: |
+          git config user.name "AETHER CI"
+          git config user.email "ci@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "chore(ci): diagnostics report and dart format [skip ci]"
+            git push
+          fi
