@@ -1,0 +1,12 @@
+{
+  "name": "aether-broker",
+  "version": "0.1.0",
+  "tasks": {
+    "check": "deno check src/main.ts",
+    "test": "deno test --allow-env --allow-net test/",
+    "dev": "deno run --allow-net --allow-env --allow-sys src/main.ts"
+  },
+  "fmt": {
+    "lineWidth": 100
+  }
+}
