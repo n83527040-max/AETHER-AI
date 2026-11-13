@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'aether_colors.dart';
 
@@ -15,7 +15,7 @@ abstract final class AetherTheme {
       onError: Colors.white,
     );
 
-    final TextTheme text = const TextTheme(
+    const TextTheme text = TextTheme(
       headlineLarge: TextStyle(
         fontSize: 30,
         fontWeight: FontWeight.w600,

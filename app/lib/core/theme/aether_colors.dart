@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Brand palette sampled from the supplied AETHER AI icon and UI boards.
 abstract final class AetherColors {

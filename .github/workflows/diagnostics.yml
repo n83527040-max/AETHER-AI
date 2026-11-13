@@ -55,6 +55,17 @@ jobs:
           echo "=== format check (after) ===" | tee -a ../.ci/report.txt
           dart format --output=none --set-exit-if-changed lib test 2>&1 | tee -a ../.ci/report.txt || true
 
+      - name: Emit Android template
+        run: |
+          flutter create --platforms=android --org ai.aether --project-name aether_ai /tmp/tpl >/dev/null 2>&1
+          rm -rf ../.ci/android-template
+          cp -r /tmp/tpl/android ../.ci/android-template
+          {
+            echo
+            echo "=== generated android files ==="
+            (cd /tmp/tpl && find android -type f | sort)
+          } >> ../.ci/report.txt
+
       - name: Commit diagnostics
         working-directory: .
         run: |

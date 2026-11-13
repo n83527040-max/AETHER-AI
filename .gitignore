@@ -35,3 +35,9 @@ service-account*.json
 .DS_Store
 Thumbs.db
 *.swp
+
+# Generated localizations (produced by `flutter gen-l10n`)
+app/lib/l10n/app_localizations*.dart
+
+# CI diagnostics scratch
+.ci/report.txt
