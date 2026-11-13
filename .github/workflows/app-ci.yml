@@ -49,23 +49,7 @@ jobs:
         run: flutter gen-l10n
 
       - name: Verify formatting
-        id: fmt
-        continue-on-error: true
         run: dart format --output=none --set-exit-if-changed lib test
-
-      - name: Capture formatted sources (when formatting differs)
-        if: steps.fmt.outcome == 'failure'
-        run: |
-          dart format lib test
-          tar czf /tmp/formatted-sources.tgz lib test
-
-      - name: Upload formatted sources
-        if: steps.fmt.outcome == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: formatted-sources
-          path: /tmp/formatted-sources.tgz
-          retention-days: 5
 
       - name: Analyze
         run: flutter analyze
@@ -134,18 +118,31 @@ jobs:
         if: steps.android.outputs.present == '1'
         run: flutter build apk --debug
 
+      - name: Build release APK and bundle
+        if: steps.android.outputs.present == '1'
+        run: |
+          flutter build apk --release
+          flutter build appbundle --release
+
       - name: Checksums
         if: steps.android.outputs.present == '1'
         run: |
-          cd build/app/outputs/flutter-apk
-          sha256sum *.apk | tee /tmp/apk-sha256.txt
+          {
+            echo "# AETHER AI build artifacts"
+            echo
+            echo "Commit: $GITHUB_SHA"
+            echo "Flutter: $(flutter --version | head -1)"
+            echo
+            sha256sum build/app/outputs/flutter-apk/*.apk build/app/outputs/bundle/release/*.aab
+          } | tee /tmp/aether-checksums.txt
 
-      - name: Upload APK
+      - name: Upload artifacts
         if: steps.android.outputs.present == '1'
         uses: actions/upload-artifact@v4
         with:
-          name: aether-debug-apk
+          name: aether-build
           path: |
             app/build/app/outputs/flutter-apk/*.apk
-            /tmp/apk-sha256.txt
+            app/build/app/outputs/bundle/release/*.aab
+            /tmp/aether-checksums.txt
           retention-days: 14
