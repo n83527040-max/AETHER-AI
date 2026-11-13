@@ -3,6 +3,9 @@ name: Diagnostics
 # Manual helper: records toolchain output and applies dart format, then commits
 # the result so the report is readable from any environment.
 on:
+  push:
+    paths:
+      - ".ci/trigger"
   workflow_dispatch:
 
 permissions:
