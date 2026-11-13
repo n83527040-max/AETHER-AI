@@ -145,8 +145,10 @@ Settings → About → Runtime will state plainly:
 
 ## 8. Approval checklist
 
-- [ ] Tier 2 relay approved (vs Tier 1 only)
-- [ ] Relay host chosen (§5) and region noted
-- [ ] Relay domain/subdomain available for TLS
-- [ ] Confirmed that the App private key will be stored only in the relay's secret store
-- [ ] Confirmed provider API keys go to the worker via Actions secrets, never through the relay
+- [x] Tier 2 relay approved (vs Tier 1 only) — owner approved 2026-11-13 and asked for the broker to be built now.
+- [x] Relay host chosen (§5) and region noted — **Deno Deploy**, global anycast edge with no region pinning on the free tier; Deno KV is used for single-use tickets.
+- [x] Relay domain/subdomain available for TLS — Deno Deploy issues `<project>.deno.dev` with managed TLS. A custom domain is optional and not required for the build.
+- [x] Confirmed that the App private key will be stored only in the relay's secret store — implemented as `AETHER_GITHUB_APP_PRIVATE_KEY`, read from the environment and never serialised into a response, log line, or repository.
+- [x] Confirmed provider API keys go to the worker via Actions secrets, never through the relay — the relay forwards opaque frames and never parses payloads, so no provider key can transit it by design.
+
+Implementation status: `services/broker/` is written and verified by `Broker CI` (typecheck, 30 unit tests, Deno check). Deployment is the remaining step and needs the owner's GitHub App `client_id`, `client_secret`, App ID and private key entered directly into Deno Deploy's secret store.

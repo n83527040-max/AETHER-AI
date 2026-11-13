@@ -64,13 +64,31 @@ GitHub redirects artifact downloads to `blob.core.windows.net`, which is outside
 | Area | State |
 |---|---|
 | GitHub device-flow sign-in | **Not implemented.** The button is deliberately disabled; it does not simulate authentication. |
-| Token broker / relay | **Not implemented.** Design in `01_RUNTIME_AND_RELAY_DESIGN.md`; awaiting host approval. |
+| Token broker / relay | **Implemented in `services/broker/`** (Deno Deploy target). Typechecked, 30 unit tests green, `Broker CI` passing. Not yet *deployed*: that needs the owner's GitHub App credentials. |
 | Hermes worker + session lifecycle | **Not implemented.** |
 | Chat, conversations, memory, projects, files | **Not implemented.** No mock conversations exist in the codebase. |
 | Skills Manager, Integrations Hub, AI Providers | **Not implemented.** |
 | Session monitor / Resume Agent | **Not implemented.** |
 
 The specification forbids mock functionality; nothing above is represented in the UI as working.
+
+---
+
+## 4b. Broker and relay — built and verified
+
+`services/broker/` is a dependency-free Deno service with two jobs: mint GitHub App credentials server-side, and relay opaque frames between the app and the Actions worker.
+
+| Aspect | Result |
+|---|---|
+| CI workflow | `.github/workflows/broker-ci.yml` — run `43498577656` ✅ |
+| Steps | `npm ci` → `tsc --strict` → 30 tests → `deno check` (all green) |
+| Runtime pin | Deno `2.9.6` shipped as a devDependency, so CI and local runs use the same version |
+| Tests | JWT sign/verify/skew/tamper/algorithm-confusion; PKCS#1→PKCS#8 import proven against an OpenSSL key pair; installation-token caching; ticket single-use/role/expiry; relay routing, oversize, rate limit, stale sweep; HTTP auth, repository binding, OIDC worker path |
+| Endpoints | `/health`, `/oauth/device/start`, `/oauth/device/poll`, `/oauth/refresh`, `/ticket`, `/worker/ticket`, `/relay` (WebSocket) |
+| Secrets | Only in Deno Deploy's environment. `.env.example` contains placeholders only; `.env` is git-ignored |
+| Cost | $0 on the Deno Deploy free tier for a single-tenant relay |
+
+Deployment is deliberately **not** done from here: it requires `AETHER_GITHUB_CLIENT_SECRET` and the App private key, which must be typed into Deno Deploy's dashboard, never pasted into chat or committed. Full steps are in `services/broker/README.md`.
 
 ---
 
@@ -92,10 +110,11 @@ The specification forbids mock functionality; nothing above is represented in th
 
 ---
 
-## 7. Next milestone (after broker approval)
+## 7. Next milestone
 
-1. Token broker + relay (one small service) with tests.
-2. Device-flow sign-in, token storage in Android Keystore, revocation.
-3. Repository workspace selection and creation-link verification.
-4. Hermes worker workflow, health check, heartbeat, encrypted checkpoint/restore.
-5. Chat UI on real gateway JSON-RPC events.
+1. ~~Token broker + relay with tests~~ — done, see §4b.
+2. Owner creates the GitHub App, deploys the broker, supplies `AETHER_GH_CLIENT_ID` + `AETHER_BROKER_URL` as build values.
+3. Device-flow sign-in in the app, token storage in Android Keystore, revocation.
+4. Repository workspace selection and creation-link verification.
+5. Hermes worker workflow, health check, heartbeat, encrypted checkpoint/restore.
+6. Chat UI on real gateway JSON-RPC events.

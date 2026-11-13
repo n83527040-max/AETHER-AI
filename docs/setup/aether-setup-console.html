@@ -250,6 +250,9 @@ footer .cols{display:flex; gap:18px; flex-wrap:wrap; justify-content:space-betwe
     <div class="panel active" id="panel1" role="region" aria-label="Step 1 Runtime hosting">
       <div class="card">
         <h1>Step 1 · Choose where Hermes runs</h1>
+        <div class="note">
+          <b>Decision recorded 2026-11-13 (ADR-001).</b> GitHub-hosted Actions (A3) is the runtime, chosen by the owner with the policy risk explicitly accepted; no host swap without written approval. The token broker and relay that support it are already built and tested, and deploy to <b>Deno Deploy</b> (free tier) rather than to GitHub.
+        </div>
         <p class="lead">AETHER's client is Flutter on Android. The agent runtime is a separate long-lived Hermes gateway.
         GitHub Actions was the requested host — research shows it fits the 6-hour ceiling but <b>not</b> GitHub's terms of service for interactive workloads.</p>
 
@@ -261,8 +264,8 @@ footer .cols{display:flex; gap:18px; flex-wrap:wrap; justify-content:space-betwe
         </div>
 
         <div class="opts" role="radiogroup" aria-label="Runtime hosting">
-          <button class="opt" role="radio" aria-checked="true" data-group="hosting" data-value="A1" onclick="pick(this)">
-            <span class="tag rec">Recommended</span>
+          <button class="opt" role="radio" aria-checked="false" data-group="hosting" data-value="A1" onclick="pick(this)">
+            <span class="tag">Compliant fallback</span>
             <span class="t"><span class="mark" aria-hidden="true"></span>Dedicated compute</span>
             <span class="d">A small VPS, home server, or serverless sandbox runs the real Hermes gateway. GitHub keeps identity, orchestration and repository snapshots. Fully policy-compliant.</span>
           </button>
@@ -274,16 +277,16 @@ footer .cols{display:flex; gap:18px; flex-wrap:wrap; justify-content:space-betwe
             <span class="t"><span class="mark" aria-hidden="true"></span>Phone-local (Termux)</span>
             <span class="d">Hermes runs on an Android device via its Termux package. Zero cost, but bound to battery, thermals and mobile network.</span>
           </button>
-          <button class="opt" role="radio" aria-checked="false" data-group="hosting" data-value="A3" onclick="pick(this)">
-            <span class="tag no">Not compliant</span>
+          <button class="opt" role="radio" aria-checked="true" data-group="hosting" data-value="A3" onclick="pick(this)">
+            <span class="tag no">Chosen 2026-11-13</span>
             <span class="t"><span class="mark" aria-hidden="true"></span>GitHub-hosted Actions</span>
             <span class="d">The originally requested host. Technically fits (6 h job limit) but violates the Actions terms above. Selectable only with explicit risk acceptance.</span>
           </button>
         </div>
 
-        <div id="a3ack" class="note warn hidden">
+        <div id="a3ack" class="note warn">
           <label class="check" style="margin:0">
-            <input type="checkbox" id="a3risk" onchange="setA3(this.checked)">
+            <input type="checkbox" id="a3risk" checked onchange="setA3(this.checked)">
             <span>I understand that running an interactive agent on GitHub-hosted runners breaches GitHub's Terms, and I accept the risk of job termination, Actions restriction, or account suspension. I still want this option evaluated.</span>
           </label>
         </div>
@@ -661,12 +664,12 @@ footer .cols{display:flex; gap:18px; flex-wrap:wrap; justify-content:space-betwe
 "use strict";
 
 const state = {
-  hosting:"A1", auth:"B1", flow:"F1", custody:"C1",
+  hosting:"A3", auth:"B1", flow:"F1", custody:"C1",
   appName:"AETHER AI", appSlug:"aether-ai", appId:"", clientId:"",
   clientSecret:"", privateKeyName:"", webhookSecret:"",
   pkgName:"ai.aether.agent", brokerUrl:"", workerUrl:"",
   repoOwner:"", repoName:"aether-ai-workspace", installationId:"",
-  webhookUrl:"", webhooks:false, a3risk:false,
+  webhookUrl:"", webhooks:false, a3risk:true,
   scopes:{repo:true, workflow:true, "read:user":true}, deviceFlowEnabled:false
 };
 
